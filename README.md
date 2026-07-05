@@ -23,14 +23,17 @@ Mobile-first MVP for scanning grocery product barcodes, fetching product details
 ## Getting started
 
 ```bash
-npm install
-npm run dev
+./scripts/install.sh
+./scripts/run.sh
 ```
 
 Open the local URL in a mobile browser or a desktop browser that supports camera access. Camera permissions work on `localhost` during development.
 
 ## Available scripts
 
+- `./scripts/install.sh` - install project dependencies
+- `./scripts/run.sh` - start the app on `http://localhost:5173`
+- `npm start` - start the Vite dev server on all interfaces
 - `npm run dev` - start the Vite dev server
 - `npm run build` - type-check and build for production
 - `npm run lint` - run oxlint
