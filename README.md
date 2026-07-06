@@ -6,7 +6,7 @@ Mobile-first MVP for scanning grocery product barcodes, fetching product details
 
 - Camera-based barcode scanning in the browser
 - Manual barcode entry fallback
-- Open Food Facts lookup for product name, ingredients, image, and key nutrients
+- Open Food Facts lookup for product name, ingredients, image, key nutrients, Nutri-Score, NOVA group, quantity, serving size, allergens, categories, and labels
 - Editable price before saving
 - IndexedDB-backed local persistence across reloads and browser restarts on the same device
 - Saved history view
