@@ -2,6 +2,8 @@ import type { NutrientValue, SavedProductRecord } from '../types'
 
 const csvHeaders = [
   'savedAt',
+  'shop',
+  'offDataFaulty',
   'barcode',
   'name',
   'brands',
@@ -14,7 +16,7 @@ const csvHeaders = [
   'proteinPer100g',
 ]
 
-const escapeCsvValue = (value: string | number | null | undefined) =>
+const escapeCsvValue = (value: string | number | boolean | null | undefined) =>
   `"${String(value ?? '').replaceAll('"', '""')}"`
 
 const readNutrient = (
@@ -28,6 +30,8 @@ export function downloadRecordsCsv(records: SavedProductRecord[]) {
     ...records.map((record) =>
       [
         record.savedAt,
+        record.shop,
+        record.offDataFaulty,
         record.barcode,
         record.name,
         record.brands,

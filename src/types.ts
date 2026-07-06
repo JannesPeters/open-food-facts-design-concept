@@ -3,6 +3,8 @@ export interface NutrientValue {
   label: string
   unit: string
   value: number | null
+  indent?: boolean
+  text?: string | null
 }
 
 export interface ProductDetails {
@@ -19,4 +21,6 @@ export interface SavedProductRecord extends ProductDetails {
   id: string
   price: number
   savedAt: string
+  shop: string | null
+  offDataFaulty: boolean
 }
