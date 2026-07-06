@@ -1,6 +1,17 @@
 import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import { Badge } from './components/ui/badge'
+import { Button } from './components/ui/button'
+import { Input } from './components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './components/ui/select'
+import { Textarea } from './components/ui/textarea'
 import './App.css'
 import { downloadRecordsCsv } from './lib/csv'
 import { fetchProductDetails } from './lib/openFoodFacts'
@@ -602,29 +613,33 @@ function App() {
     <div className="shop-picker">
       <label className="field">
         <span>Shop</span>
-        <select
+        <Select
           value={selectedShop}
-          onChange={(event) => {
-            setSelectedShop(event.target.value)
-            if (event.target.value !== customShopOption) {
+          onValueChange={(value) => {
+            setSelectedShop(value)
+            if (value !== customShopOption) {
               setCustomShopName('')
             }
             setSaveMessage('')
           }}
         >
-          <option value="">Choose a shop</option>
-          {shopOptions.map((shopOption) => (
-            <option key={shopOption} value={shopOption}>
-              {shopOption}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger>
+            <SelectValue placeholder="Choose a shop" />
+          </SelectTrigger>
+          <SelectContent>
+            {shopOptions.map((shopOption) => (
+              <SelectItem key={shopOption} value={shopOption}>
+                {shopOption}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </label>
 
       {selectedShop === customShopOption && (
         <label className="field">
           <span>Custom shop name</span>
-          <input
+          <Input
             type="text"
             autoComplete="off"
             placeholder="Enter a shop name"
@@ -648,8 +663,15 @@ function App() {
               <div>
                 <h2>Capture a product</h2>
               </div>
-              <span
-                className={`status-pill status-pill--${scannerStatus === 'active' ? 'good' : scannerStatus === 'error' ? 'bad' : 'neutral'}`}
+              <Badge
+                variant={
+                  scannerStatus === 'active'
+                    ? 'default'
+                    : scannerStatus === 'error'
+                      ? 'destructive'
+                      : 'secondary'
+                }
+                className="status-pill"
               >
                 {scannerStatus === 'active'
                   ? 'Camera live'
@@ -658,7 +680,7 @@ function App() {
                     : scannerStatus === 'error'
                       ? 'Camera unavailable'
                       : 'Camera idle'}
-              </span>
+              </Badge>
             </div>
 
             {renderShopPicker()}
@@ -673,28 +695,27 @@ function App() {
             </div>
 
             <div className="scanner-actions">
-              <button
+              <Button
                 type="button"
-                className="button button--primary"
                 onClick={() => void startScanner()}
                 disabled={scannerStatus === 'starting'}
               >
                 {scannerStatus === 'active' ? 'Restart camera' : 'Start camera'}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className="button button--secondary"
+                variant="secondary"
                 onClick={() => stopScanner()}
                 disabled={scannerStatus !== 'active'}
               >
                 Stop camera
-              </button>
+              </Button>
             </div>
 
             <form className="manual-form" onSubmit={handleLookupSubmit}>
               <label className="field">
                 <span>Manual barcode entry</span>
-                <input
+                <Input
                   type="text"
                   inputMode="numeric"
                   autoComplete="off"
@@ -705,13 +726,12 @@ function App() {
                   }
                 />
               </label>
-              <button
+              <Button
                 type="submit"
-                className="button button--primary"
                 disabled={lookupStatus === 'loading'}
               >
                 {lookupStatus === 'loading' ? 'Looking up…' : 'Lookup'}
-              </button>
+              </Button>
             </form>
 
             <p
@@ -728,14 +748,14 @@ function App() {
                 <h2>Browse and export your items</h2>
               </div>
 
-              <button
+              <Button
                 type="button"
-                className="button button--secondary"
+                variant="secondary"
                 onClick={() => downloadRecordsCsv(history)}
                 disabled={history.length === 0}
               >
                 Export CSV
-              </button>
+              </Button>
             </div>
 
             {history.length > 0 ? (
@@ -759,15 +779,18 @@ function App() {
                       <div className="history-card__actions">
                         <strong>{formatPrice(record.price)}</strong>
                         {record.offDataFaulty && (
-                          <span className="history-card__badge">OFF data faulty</span>
+                          <Badge variant="outline" className="history-card__badge">
+                            OFF data faulty
+                          </Badge>
                         )}
-                        <button
+                        <Button
                           type="button"
-                          className="button button--secondary button--small"
+                          variant="secondary"
+                          size="sm"
                           onClick={() => handleEditRecord(record)}
                         >
                           Edit
-                        </button>
+                        </Button>
                       </div>
                     </div>
                     <p className="history-card__meta">{formatTimestamp(record.savedAt)}</p>
@@ -788,13 +811,14 @@ function App() {
       ) : (
         <section className="panel panel--product-page">
           <div className="panel-header panel-header--product-page">
-            <button
+            <Button
               type="button"
-              className="button button--secondary button--small"
+              variant="secondary"
+              size="sm"
               onClick={() => navigateToPage('capture')}
             >
               Back
-            </button>
+            </Button>
             <div>
               <h2>{editingRecordId ? 'Edit saved item' : 'Confirm before saving'}</h2>
             </div>
@@ -810,7 +834,7 @@ function App() {
                     <>
                       <label className="field">
                         <span>Barcode</span>
-                        <input
+                        <Input
                           type="text"
                           inputMode="numeric"
                           value={currentProduct.barcode}
@@ -822,7 +846,7 @@ function App() {
 
                       <label className="field">
                         <span>Product name</span>
-                        <input
+                        <Input
                           type="text"
                           value={currentProduct.name ?? ''}
                           onChange={(event) =>
@@ -833,7 +857,7 @@ function App() {
 
                       <label className="field">
                         <span>Brand</span>
-                        <input
+                        <Input
                           type="text"
                           value={currentProduct.brands ?? ''}
                           onChange={(event) =>
@@ -844,7 +868,7 @@ function App() {
 
                       <label className="field">
                         <span>Image URL</span>
-                        <input
+                        <Input
                           type="text"
                           autoComplete="off"
                           value={currentProduct.imageUrl ?? ''}
@@ -900,7 +924,7 @@ function App() {
                   {isDetailsEditMode ? (
                     <label className="field">
                       <span>Ingredients text</span>
-                      <textarea
+                      <Textarea
                         value={currentProduct.ingredients ?? ''}
                         onChange={(event) =>
                           updateProductField('ingredients', event.target.value)
@@ -942,7 +966,7 @@ function App() {
                                   <div className="nutrition-energy-inputs">
                                     <label className="nutrition-energy-field">
                                       <span>kJ</span>
-                                      <input
+                                      <Input
                                         type="text"
                                         inputMode="decimal"
                                         value={energyParts.kilojoules}
@@ -957,7 +981,7 @@ function App() {
                                     </label>
                                     <label className="nutrition-energy-field">
                                       <span>kcal</span>
-                                      <input
+                                      <Input
                                         type="text"
                                         inputMode="decimal"
                                         value={energyParts.kilocalories}
@@ -973,7 +997,7 @@ function App() {
                                   </div>
                                 ) : (
                                   <div className="nutrition-value-input">
-                                    <input
+                                    <Input
                                       type="text"
                                       inputMode="decimal"
                                       value={nutrient.value ?? ''}
@@ -1007,7 +1031,7 @@ function App() {
               <div className="price-row">
                 <label className="field">
                   <span>Price</span>
-                  <input
+                  <Input
                     type="text"
                     inputMode="decimal"
                     placeholder="2.49"
@@ -1021,37 +1045,36 @@ function App() {
 
                 <div className="price-actions">
                   {isDetailsEditMode ? (
-                    <button
+                    <Button
                       type="button"
-                      className="button button--secondary"
+                      variant="secondary"
                       onClick={handleCancelProductEdit}
                     >
                       Cancel details edit
-                    </button>
+                    </Button>
                   ) : editingRecordId ? (
-                    <button
+                    <Button
                       type="button"
-                      className="button button--secondary"
+                      variant="secondary"
                       onClick={handleCancelEdit}
                     >
                       Cancel edit
-                    </button>
+                    </Button>
                   ) : (
-                    <button
+                    <Button
                       type="button"
-                      className="button button--secondary"
+                      variant="secondary"
                       onClick={handleStartProductEdit}
                     >
                       Edit details
-                    </button>
+                    </Button>
                   )}
-                  <button
+                  <Button
                     type="button"
-                    className="button button--primary"
                     onClick={() => void handleSave()}
                   >
                     {editingRecordId ? 'Update saved item' : 'Save item locally'}
-                  </button>
+                  </Button>
                 </div>
               </div>
 
