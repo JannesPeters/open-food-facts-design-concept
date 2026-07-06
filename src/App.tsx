@@ -1,4 +1,5 @@
 import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser'
+import { Pencil, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Badge } from './components/ui/badge'
@@ -15,7 +16,7 @@ import { Textarea } from './components/ui/textarea'
 import './App.css'
 import { downloadRecordsCsv } from './lib/csv'
 import { fetchProductDetails } from './lib/openFoodFacts'
-import { listSavedRecords, saveRecord } from './lib/storage'
+import { deleteRecord, listSavedRecords, saveRecord } from './lib/storage'
 import type { ProductDetails, SavedProductRecord } from './types'
 
 const cameraSupported =
@@ -29,19 +30,42 @@ const createRecordId = () =>
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
-const formatPrice = (value: number) =>
-  new Intl.NumberFormat(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value)
+const formatPrice = (value: number | null) =>
+  value === null
+    ? 'N.A.'
+    : new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(value)
 
 const formatTimestamp = (value: string) =>
   new Intl.DateTimeFormat(undefined, {
     dateStyle: 'medium',
-    timeStyle: 'short',
   }).format(new Date(value))
 
-const toPriceNumber = (value: string) => Number(value.replace(',', '.'))
+const formatDateInputValue = (value: string) => {
+  const parsedValue = new Date(value)
+  if (Number.isNaN(parsedValue.getTime())) {
+    return ''
+  }
+
+  const year = parsedValue.getFullYear()
+  const month = String(parsedValue.getMonth() + 1).padStart(2, '0')
+  const day = String(parsedValue.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+const parseDateInputValue = (value: string) => {
+  const [year, month, day] = value.split('-').map(Number)
+
+  if (!year || !month || !day) {
+    return null
+  }
+
+  const parsedValue = new Date(year, month - 1, day, 12)
+  return Number.isNaN(parsedValue.getTime()) ? null : parsedValue.toISOString()
+}
 
 const toOptionalNumber = (value: string) => {
   const normalizedValue = value.replace(',', '.').trim()
@@ -171,9 +195,12 @@ function App() {
     null,
   )
   const [priceInput, setPriceInput] = useState('')
+  const [savedAtInput, setSavedAtInput] = useState('')
   const [history, setHistory] = useState<SavedProductRecord[]>([])
   const [saveMessage, setSaveMessage] = useState('')
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null)
+  const [recordPendingDeletion, setRecordPendingDeletion] =
+    useState<SavedProductRecord | null>(null)
   const [selectedShop, setSelectedShop] = useState('')
   const [customShopName, setCustomShopName] = useState('')
   const [offDataFaulty, setOffDataFaulty] = useState(false)
@@ -299,10 +326,46 @@ function App() {
     setCurrentProduct(null)
     setProductReference(null)
     setPriceInput('')
+    setSavedAtInput('')
     setEditingRecordId(null)
     setOffDataFaulty(false)
     setIsDetailsEditMode(false)
   }, [])
+
+  const openSavedRecord = useCallback(
+    (
+      record: SavedProductRecord,
+      message = 'Editing saved item. Update any field and save your changes.',
+      editMode = true,
+    ) => {
+      const product: ProductDetails = {
+        barcode: record.barcode,
+        name: record.name,
+        ingredients: record.ingredients,
+        brands: record.brands,
+        imageUrl: record.imageUrl,
+        nutrients: record.nutrients.map((nutrient) => ({ ...nutrient })),
+        isProductFound: record.isProductFound,
+      }
+
+      const shopSelection = getShopSelectionState(record.shop)
+
+      setCurrentProduct(product)
+      setProductReference(cloneProductDetails(product))
+      setPriceInput(record.price === null ? '' : String(record.price))
+      setSavedAtInput(formatDateInputValue(record.savedAt))
+      setEditingRecordId(record.id)
+      setSelectedShop(shopSelection.selectedShop)
+      setCustomShopName(shopSelection.customShopName)
+      setOffDataFaulty(record.offDataFaulty)
+      setIsDetailsEditMode(editMode)
+      setLookupStatus('ready')
+      setLookupMessage(message)
+      setSaveMessage('')
+      navigateToPage('product')
+    },
+    [navigateToPage],
+  )
 
   const handleLookupProduct = useCallback(
     async (rawBarcode: string) => {
@@ -322,6 +385,17 @@ function App() {
       setLookupMessage('Looking up barcode…')
       setSaveMessage('')
 
+      const matchingRecord = history.find((record) => record.barcode === barcode)
+
+      if (matchingRecord) {
+        openSavedRecord(
+          matchingRecord,
+          'Saved item opened. Update any field and save your changes.',
+          true,
+        )
+        return
+      }
+
       try {
         const product = await fetchProductDetails(barcode)
 
@@ -332,6 +406,7 @@ function App() {
         setCurrentProduct(product)
         setProductReference(cloneProductDetails(product))
         setPriceInput('')
+        setSavedAtInput('')
         setEditingRecordId(null)
         setOffDataFaulty(false)
         setIsDetailsEditMode(false)
@@ -351,7 +426,7 @@ function App() {
         setLookupMessage(getErrorMessage(error))
       }
     },
-    [navigateToPage],
+    [history, navigateToPage, openSavedRecord],
   )
 
   const startScanner = useCallback(async () => {
@@ -493,45 +568,58 @@ function App() {
   }, [])
 
   const handleCancelProductEdit = useCallback(() => {
-    if (!productReference) {
-      setIsDetailsEditMode(false)
-      return
-    }
-
-    setCurrentProduct(cloneProductDetails(productReference))
-    setIsDetailsEditMode(false)
+    resetProductFlow()
+    setLookupStatus('idle')
+    setLookupMessage(initialLookupMessage)
     setSaveMessage('')
-  }, [productReference])
+    navigateToPage('capture')
+  }, [navigateToPage, resetProductFlow])
 
   const handleEditRecord = useCallback(
     (record: SavedProductRecord) => {
-      const product: ProductDetails = {
-        barcode: record.barcode,
-        name: record.name,
-        ingredients: record.ingredients,
-        brands: record.brands,
-        imageUrl: record.imageUrl,
-        nutrients: record.nutrients.map((nutrient) => ({ ...nutrient })),
-        isProductFound: record.isProductFound,
-      }
-
-      const shopSelection = getShopSelectionState(record.shop)
-
-      setCurrentProduct(product)
-      setProductReference(cloneProductDetails(product))
-      setPriceInput(String(record.price))
-      setEditingRecordId(record.id)
-      setSelectedShop(shopSelection.selectedShop)
-      setCustomShopName(shopSelection.customShopName)
-      setOffDataFaulty(record.offDataFaulty)
-      setIsDetailsEditMode(true)
-      setLookupStatus('ready')
-      setLookupMessage('Editing saved item. Update any field and save your changes.')
-      setSaveMessage('')
-      navigateToPage('product')
+      openSavedRecord(record)
     },
-    [navigateToPage],
+    [openSavedRecord],
   )
+
+  const handleOpenRecord = useCallback(
+    (record: SavedProductRecord) => {
+      openSavedRecord(
+        record,
+        'Saved item opened. Use Edit details if you want to make changes.',
+        false,
+      )
+    },
+    [openSavedRecord],
+  )
+
+  const handleRequestDeleteRecord = useCallback((record: SavedProductRecord) => {
+    setRecordPendingDeletion(record)
+  }, [])
+
+  const handleCancelDeleteRecord = useCallback(() => {
+    setRecordPendingDeletion(null)
+  }, [])
+
+  const handleConfirmDeleteRecord = useCallback(async () => {
+    if (!recordPendingDeletion) {
+      return
+    }
+
+    await deleteRecord(recordPendingDeletion.id)
+    setHistory((previousHistory) =>
+      previousHistory.filter((record) => record.id !== recordPendingDeletion.id),
+    )
+
+    if (editingRecordId === recordPendingDeletion.id) {
+      resetProductFlow()
+      setLookupStatus('idle')
+      setLookupMessage(initialLookupMessage)
+    }
+
+    setSaveMessage(`Removed ${recordPendingDeletion.name ?? 'item'}.`)
+    setRecordPendingDeletion(null)
+  }, [editingRecordId, recordPendingDeletion, resetProductFlow])
 
   const handleCancelEdit = useCallback(() => {
     resetProductFlow()
@@ -546,8 +634,8 @@ function App() {
       return
     }
 
-    const normalizedPrice = toPriceNumber(priceInput)
-    if (!Number.isFinite(normalizedPrice) || normalizedPrice < 0) {
+    const normalizedPrice = toOptionalNumber(priceInput)
+    if (normalizedPrice !== null && normalizedPrice < 0) {
       setSaveMessage('Enter a valid price before saving.')
       return
     }
@@ -557,9 +645,15 @@ function App() {
       return
     }
 
-    const existingRecord = editingRecordId
-      ? history.find((record) => record.id === editingRecordId) ?? null
-      : null
+    const normalizedSavedAt =
+      editingRecordId || savedAtInput
+        ? parseDateInputValue(savedAtInput)
+        : new Date().toISOString()
+
+    if (!normalizedSavedAt) {
+      setSaveMessage('Enter a valid saved date before saving.')
+      return
+    }
 
     const record: SavedProductRecord = {
       id: editingRecordId ?? createRecordId(),
@@ -571,7 +665,7 @@ function App() {
       nutrients: currentProduct.nutrients.map((nutrient) => ({ ...nutrient })),
       isProductFound: currentProduct.isProductFound,
       price: normalizedPrice,
-      savedAt: existingRecord?.savedAt ?? new Date().toISOString(),
+      savedAt: normalizedSavedAt,
       shop: activeShopName,
       offDataFaulty: offDataFaultyMarkerVisible,
     }
@@ -594,7 +688,9 @@ function App() {
         : 'Saved locally. Scan the next product when you are ready.',
     )
     setSaveMessage(
-      `${isEditing ? 'Updated' : 'Saved'} ${record.name ?? 'item'} at ${record.shop} for ${formatPrice(record.price)}.`,
+    record.price === null
+      ? `${isEditing ? 'Updated' : 'Saved'} ${record.name ?? 'item'} at ${record.shop}.`
+      : `${isEditing ? 'Updated' : 'Saved'} ${record.name ?? 'item'} at ${record.shop} for ${formatPrice(record.price)}.`,
     )
     setBarcodeInput('')
     navigateToPage('capture')
@@ -602,17 +698,16 @@ function App() {
     activeShopName,
     currentProduct,
     editingRecordId,
-    history,
     navigateToPage,
     offDataFaultyMarkerVisible,
     priceInput,
     resetProductFlow,
+    savedAtInput,
   ])
 
   const renderShopPicker = () => (
     <div className="shop-picker">
-      <label className="field">
-        <span>Shop</span>
+      <div className="field">
         <Select
           value={selectedShop}
           onValueChange={(value) => {
@@ -623,7 +718,7 @@ function App() {
             setSaveMessage('')
           }}
         >
-          <SelectTrigger>
+          <SelectTrigger aria-label="Shop">
             <SelectValue placeholder="Choose a shop" />
           </SelectTrigger>
           <SelectContent>
@@ -634,7 +729,7 @@ function App() {
             ))}
           </SelectContent>
         </Select>
-      </label>
+      </div>
 
       {selectedShop === customShopOption && (
         <label className="field">
@@ -659,30 +754,6 @@ function App() {
       {currentPage === 'capture' ? (
         <>
           <section className="panel">
-            <div className="panel-header">
-              <div>
-                <h2>Capture a product</h2>
-              </div>
-              <Badge
-                variant={
-                  scannerStatus === 'active'
-                    ? 'default'
-                    : scannerStatus === 'error'
-                      ? 'destructive'
-                      : 'secondary'
-                }
-                className="status-pill"
-              >
-                {scannerStatus === 'active'
-                  ? 'Camera live'
-                  : scannerStatus === 'starting'
-                    ? 'Starting camera'
-                    : scannerStatus === 'error'
-                      ? 'Camera unavailable'
-                      : 'Camera idle'}
-              </Badge>
-            </div>
-
             {renderShopPicker()}
 
             <div className="scanner-preview">
@@ -710,13 +781,31 @@ function App() {
               >
                 Stop camera
               </Button>
+              <Badge
+                variant={
+                  scannerStatus === 'active'
+                    ? 'default'
+                    : scannerStatus === 'error'
+                      ? 'destructive'
+                      : 'secondary'
+                }
+                className="status-pill"
+              >
+                {scannerStatus === 'active'
+                  ? 'Camera live'
+                  : scannerStatus === 'starting'
+                    ? 'Starting camera'
+                    : scannerStatus === 'error'
+                      ? 'Camera unavailable'
+                      : 'Camera idle'}
+              </Badge>
             </div>
 
             <form className="manual-form" onSubmit={handleLookupSubmit}>
-              <label className="field">
-                <span>Manual barcode entry</span>
+              <div className="field">
                 <Input
                   type="text"
+                  aria-label="Manual barcode entry"
                   inputMode="numeric"
                   autoComplete="off"
                   placeholder="Example: 3017620422003"
@@ -725,7 +814,7 @@ function App() {
                     setBarcodeInput(sanitizeBarcode(event.target.value))
                   }
                 />
-              </label>
+              </div>
               <Button
                 type="submit"
                 disabled={lookupStatus === 'loading'}
@@ -734,11 +823,13 @@ function App() {
               </Button>
             </form>
 
-            <p
-              className={`helper-text helper-text--${lookupStatus === 'error' ? 'error' : 'default'}`}
-            >
-              {lookupMessage}
-            </p>
+            {lookupStatus !== 'idle' && (
+              <p
+                className={`helper-text helper-text--${lookupStatus === 'error' ? 'error' : 'default'}`}
+              >
+                {lookupMessage}
+              </p>
+            )}
             {saveMessage && <p className="helper-text">{saveMessage}</p>}
           </section>
 
@@ -766,16 +857,20 @@ function App() {
                     className={`history-card${editingRecordId === record.id ? ' history-card--editing' : ''}`}
                   >
                     <div className="history-card__top">
-                      <div>
+                      <button
+                        type="button"
+                        className="history-card__summary"
+                        onClick={() => handleOpenRecord(record)}
+                      >
                         <h3>{record.name ?? 'Unknown product'}</h3>
-                        <p>{record.barcode}</p>
-                        <p className="history-card__brand">
-                          {record.brands ?? 'Brand unavailable'}
+                        <p className="history-card__meta">
+                          {[
+                            record.brands ?? 'Brand unavailable',
+                            record.shop ?? 'Shop not set',
+                            formatTimestamp(record.savedAt),
+                          ].join(' · ')}
                         </p>
-                        <p className="history-card__shop">
-                          {record.shop ?? 'Shop not set'}
-                        </p>
-                      </div>
+                      </button>
                       <div className="history-card__actions">
                         <strong>{formatPrice(record.price)}</strong>
                         {record.offDataFaulty && (
@@ -783,21 +878,30 @@ function App() {
                             OFF data faulty
                           </Badge>
                         )}
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleEditRecord(record)}
-                        >
-                          Edit
-                        </Button>
+                        <div className="history-card__icon-actions">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Edit ${record.name ?? 'item'}`}
+                            title="Edit"
+                            onClick={() => handleEditRecord(record)}
+                          >
+                            <Pencil size={16} />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Remove ${record.name ?? 'item'}`}
+                            title="Remove"
+                            onClick={() => handleRequestDeleteRecord(record)}
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                    <p className="history-card__meta">{formatTimestamp(record.savedAt)}</p>
-                    <p className="history-card__ingredients">
-                      {record.ingredients ??
-                        'No ingredients were stored for this product.'}
-                    </p>
                   </article>
                 ))}
               </div>
@@ -819,9 +923,6 @@ function App() {
             >
               Back
             </Button>
-            <div>
-              <h2>{editingRecordId ? 'Edit saved item' : 'Confirm before saving'}</h2>
-            </div>
           </div>
 
           {renderShopPicker()}
@@ -888,7 +989,6 @@ function App() {
                             : 'Unknown product')}
                       </h3>
                       <p className="product-card__subtitle">
-                        <span className="product-card__meta-label">Brand:</span>{' '}
                         {currentProduct.isProductFound
                           ? currentProduct.brands ?? 'Brand unavailable'
                           : 'No matching product data was found.'}
@@ -896,10 +996,6 @@ function App() {
                     </>
                   )}
 
-                  <p className="product-card__subtitle">
-                    <span className="product-card__meta-label">Shop:</span>{' '}
-                    {activeShopName || 'Not selected'}
-                  </p>
                   {offDataFaultyMarkerVisible && (
                     <p className="product-card__flag">OFF data faulty</p>
                   )}
@@ -938,9 +1034,7 @@ function App() {
                     </p>
                   )}
                 </section>
-
                 <section className="detail-card">
-                  <h4>Nutrition declaration</h4>
                   <table className="nutrition-label">
                     <thead>
                       <tr>
@@ -1029,19 +1123,35 @@ function App() {
               </div>
 
               <div className="price-row">
-                <label className="field">
-                  <span>Price</span>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="2.49"
-                    value={priceInput}
-                    onChange={(event) => {
-                      setPriceInput(event.target.value)
-                      setSaveMessage('')
-                    }}
-                  />
-                </label>
+                <div className="price-fields">
+                  <label className="field">
+                    <span>Price</span>
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="2.49"
+                      value={priceInput}
+                      onChange={(event) => {
+                        setPriceInput(event.target.value)
+                        setSaveMessage('')
+                      }}
+                    />
+                  </label>
+
+                  {editingRecordId && (
+                    <label className="field">
+                      <span>Saved on</span>
+                      <Input
+                        type="date"
+                        value={savedAtInput}
+                        onChange={(event) => {
+                          setSavedAtInput(event.target.value)
+                          setSaveMessage('')
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
 
                 <div className="price-actions">
                   {isDetailsEditMode ? (
@@ -1089,6 +1199,44 @@ function App() {
             </div>
           )}
         </section>
+      )}
+      {recordPendingDeletion && (
+        <div
+          className="confirm-dialog-backdrop"
+          role="presentation"
+          onClick={handleCancelDeleteRecord}
+        >
+          <div
+            className="confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-delete-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="confirm-delete-title">Remove entry?</h2>
+            <p>
+              This will permanently remove{' '}
+              <strong>{recordPendingDeletion.name ?? 'this item'}</strong> from
+              your saved history.
+            </p>
+            <div className="confirm-dialog__actions">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleCancelDeleteRecord}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => void handleConfirmDeleteRecord()}
+              >
+                Remove
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   )
