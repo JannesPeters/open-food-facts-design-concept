@@ -21,6 +21,14 @@ const normalizeRecord = (record: SavedProductRecord): SavedProductRecord => ({
   price: record.price ?? null,
   shop: record.shop ?? null,
   offDataFaulty: record.offDataFaulty ?? false,
+  nutriScore: record.nutriScore ?? null,
+  novaGroup: record.novaGroup ?? null,
+  quantity: record.quantity ?? null,
+  servingSize: record.servingSize ?? null,
+  allergens: record.allergens ?? null,
+  categories: record.categories ?? null,
+  labels: record.labels ?? null,
+  ingredientsAnalysis: record.ingredientsAnalysis ?? null,
 })
 
 export async function listSavedRecords(): Promise<SavedProductRecord[]> {

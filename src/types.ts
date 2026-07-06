@@ -13,6 +13,14 @@ export interface ProductDetails {
   ingredients: string | null
   brands: string | null
   imageUrl: string | null
+  nutriScore: string | null
+  novaGroup: number | null
+  quantity: string | null
+  servingSize: string | null
+  allergens: string | null
+  categories: string | null
+  labels: string | null
+  ingredientsAnalysis: string | null
   nutrients: NutrientValue[]
   isProductFound: boolean
 }

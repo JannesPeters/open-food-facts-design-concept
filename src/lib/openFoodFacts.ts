@@ -8,6 +8,14 @@ const requestedFields = [
   'brands',
   'image_url',
   'nutriments',
+  'nutriscore_grade',
+  'nova_group',
+  'quantity',
+  'serving_size',
+  'allergens',
+  'categories',
+  'labels',
+  'ingredients_analysis_tags',
 ].join(',')
 
 const openFoodFactsOrigin = 'https://world.openfoodfacts.org'
@@ -41,6 +49,7 @@ const importantNutrients: Array<{
   { id: 'saturated-fat_100g', label: 'of which saturates', unit: 'g', indent: true },
   { id: 'carbohydrates_100g', label: 'Carbohydrate', unit: 'g' },
   { id: 'sugars_100g', label: 'of which sugars', unit: 'g', indent: true },
+  { id: 'fiber_100g', label: 'Fibre', unit: 'g' },
   { id: 'proteins_100g', label: 'Protein', unit: 'g' },
   { id: 'salt_100g', label: 'Salt', unit: 'g' },
 ]
@@ -52,6 +61,14 @@ interface OpenFoodFactsProduct {
   brands?: string
   image_url?: string
   nutriments?: Record<string, number | string | undefined>
+  nutriscore_grade?: string
+  nova_group?: number | string
+  quantity?: string
+  serving_size?: string
+  allergens?: string
+  categories?: string
+  labels?: string
+  ingredients_analysis_tags?: string[]
 }
 
 interface OpenFoodFactsResponse {
@@ -112,12 +129,62 @@ const buildNutrients = (
   })),
 ]
 
+const cleanText = (value: string | undefined): string | null => {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : null
+}
+
+const cleanTagList = (value: string | undefined): string | null => {
+  if (!value) {
+    return null
+  }
+
+  const cleaned = value
+    .split(',')
+    .map((entry) => entry.trim().replace(/^[a-z]{2}:/u, '').replace(/-/gu, ' '))
+    .filter((entry) => entry.length > 0)
+    .join(', ')
+
+  return cleaned || null
+}
+
+const cleanAnalysisTags = (tags: string[] | undefined): string | null => {
+  if (!Array.isArray(tags)) {
+    return null
+  }
+
+  const cleaned = tags
+    .map((tag) => tag.trim().replace(/^[a-z]{2}:/u, '').replace(/-/gu, ' '))
+    .map((tag) => (tag ? tag.charAt(0).toUpperCase() + tag.slice(1) : tag))
+    .filter((tag) => tag.length > 0 && !/status unknown$/iu.test(tag))
+
+  return cleaned.length > 0 ? cleaned.join(', ') : null
+}
+
+const normalizeNutriScore = (value: string | undefined): string | null => {
+  const grade = value?.trim().toUpperCase()
+  return grade && /^[A-E]$/u.test(grade) ? grade : null
+}
+
+const normalizeNovaGroup = (value: number | string | undefined): number | null => {
+  const group = readNumber(value)
+  return group !== null && group >= 1 && group <= 4 ? group : null
+}
+
 const buildMissingProductDetails = (barcode: string): ProductDetails => ({
   barcode,
   name: null,
   ingredients: null,
   brands: null,
   imageUrl: null,
+  nutriScore: null,
+  novaGroup: null,
+  quantity: null,
+  servingSize: null,
+  allergens: null,
+  categories: null,
+  labels: null,
+  ingredientsAnalysis: null,
   nutrients: buildNutrients(undefined),
   isProductFound: false,
 })
@@ -145,6 +212,14 @@ export async function fetchProductDetails(
           ingredients: product?.ingredients_text?.trim() || null,
           brands: product?.brands?.trim() || null,
           imageUrl: product?.image_url?.trim() || null,
+          nutriScore: normalizeNutriScore(product?.nutriscore_grade),
+          novaGroup: normalizeNovaGroup(product?.nova_group),
+          quantity: cleanText(product?.quantity),
+          servingSize: cleanText(product?.serving_size),
+          allergens: cleanTagList(product?.allergens),
+          categories: cleanTagList(product?.categories),
+          labels: cleanTagList(product?.labels),
+          ingredientsAnalysis: cleanAnalysisTags(product?.ingredients_analysis_tags),
           nutrients: buildNutrients(product?.nutriments),
           isProductFound: data.status === 1,
         }

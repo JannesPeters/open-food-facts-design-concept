@@ -306,6 +306,63 @@
   color: var(--text-muted);
 }
 
+.detail-fields {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.spec-summary {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.spec-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.spec-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--muted, transparent);
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.spec-pill__label {
+  color: var(--text-muted);
+}
+
+.spec-pill__label::after {
+  content: ':';
+}
+
+.spec-pill__values {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.spec-pill__value {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.spec-pill__values .spec-pill__value:not(:last-child)::after {
+  content: '|';
+  margin-left: 0.375rem;
+  font-weight: 400;
+  color: var(--border);
+}
+
 .nutrition-label {
   width: 100%;
   border-collapse: collapse;
@@ -348,7 +405,7 @@
   border-bottom: none;
 }
 
-.nutrition-label__sub th {
+.nutrition-label tbody .nutrition-label__sub th {
   padding-left: 2.5rem;
   font-weight: 400;
   color: var(--text-muted);

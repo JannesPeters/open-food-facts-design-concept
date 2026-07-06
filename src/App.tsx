@@ -128,6 +128,14 @@ const cloneProductDetails = (product: ProductDetails): ProductDetails => ({
   ingredients: product.ingredients,
   brands: product.brands,
   imageUrl: product.imageUrl,
+  nutriScore: product.nutriScore,
+  novaGroup: product.novaGroup,
+  quantity: product.quantity,
+  servingSize: product.servingSize,
+  allergens: product.allergens,
+  categories: product.categories,
+  labels: product.labels,
+  ingredientsAnalysis: product.ingredientsAnalysis,
   nutrients: product.nutrients.map((nutrient) => ({ ...nutrient })),
   isProductFound: product.isProductFound,
 })
@@ -139,6 +147,14 @@ const getProductComparisonSignature = (product: ProductDetails) =>
     ingredients: product.ingredients?.trim() ?? '',
     brands: product.brands?.trim() ?? '',
     imageUrl: product.imageUrl?.trim() ?? '',
+    nutriScore: product.nutriScore?.trim() ?? '',
+    novaGroup: product.novaGroup ?? '',
+    quantity: product.quantity?.trim() ?? '',
+    servingSize: product.servingSize?.trim() ?? '',
+    allergens: product.allergens?.trim() ?? '',
+    categories: product.categories?.trim() ?? '',
+    labels: product.labels?.trim() ?? '',
+    ingredientsAnalysis: product.ingredientsAnalysis?.trim() ?? '',
     nutrients: product.nutrients.map((nutrient) => ({
       id: nutrient.id,
       value: nutrient.value,
@@ -344,6 +360,14 @@ function App() {
         ingredients: record.ingredients,
         brands: record.brands,
         imageUrl: record.imageUrl,
+        nutriScore: record.nutriScore,
+        novaGroup: record.novaGroup,
+        quantity: record.quantity,
+        servingSize: record.servingSize,
+        allergens: record.allergens,
+        categories: record.categories,
+        labels: record.labels,
+        ingredientsAnalysis: record.ingredientsAnalysis,
         nutrients: record.nutrients.map((nutrient) => ({ ...nutrient })),
         isProductFound: record.isProductFound,
       }
@@ -502,7 +526,19 @@ function App() {
 
   const updateProductField = useCallback(
     (
-      field: 'barcode' | 'name' | 'ingredients' | 'brands' | 'imageUrl',
+      field:
+        | 'barcode'
+        | 'name'
+        | 'ingredients'
+        | 'brands'
+        | 'imageUrl'
+        | 'nutriScore'
+        | 'quantity'
+        | 'servingSize'
+        | 'allergens'
+        | 'categories'
+        | 'labels'
+        | 'ingredientsAnalysis',
       value: string,
     ) => {
       setCurrentProduct((previousProduct) => {
@@ -519,6 +555,21 @@ function App() {
     },
     [],
   )
+
+  const updateNovaGroup = useCallback((value: string) => {
+    setCurrentProduct((previousProduct) => {
+      if (!previousProduct) {
+        return previousProduct
+      }
+
+      const parsed = Number.parseInt(value, 10)
+      const novaGroup =
+        Number.isFinite(parsed) && parsed >= 1 && parsed <= 4 ? parsed : null
+
+      return { ...previousProduct, novaGroup }
+    })
+    setSaveMessage('')
+  }, [])
 
   const updateNutrientValue = useCallback(
     (nutrientId: string, value: string, part: 'value' | 'kj' | 'kcal') => {
@@ -662,6 +713,14 @@ function App() {
       ingredients: currentProduct.ingredients?.trim() || null,
       brands: currentProduct.brands?.trim() || null,
       imageUrl: currentProduct.imageUrl?.trim() || null,
+      nutriScore: currentProduct.nutriScore?.trim().toUpperCase() || null,
+      novaGroup: currentProduct.novaGroup,
+      quantity: currentProduct.quantity?.trim() || null,
+      servingSize: currentProduct.servingSize?.trim() || null,
+      allergens: currentProduct.allergens?.trim() || null,
+      categories: currentProduct.categories?.trim() || null,
+      labels: currentProduct.labels?.trim() || null,
+      ingredientsAnalysis: currentProduct.ingredientsAnalysis?.trim() || null,
       nutrients: currentProduct.nutrients.map((nutrient) => ({ ...nutrient })),
       isProductFound: currentProduct.isProductFound,
       price: normalizedPrice,
@@ -1015,6 +1074,213 @@ function App() {
               </div>
 
               <div className="product-grid">
+                <section className="detail-card">
+                  <h4>Product details</h4>
+                  {isDetailsEditMode ? (
+                    <div className="detail-fields">
+                      <label className="field">
+                        <span>Nutri-Score (A–E)</span>
+                        <Input
+                          type="text"
+                          maxLength={1}
+                          value={currentProduct.nutriScore ?? ''}
+                          onChange={(event) =>
+                            updateProductField('nutriScore', event.target.value)
+                          }
+                        />
+                      </label>
+                      <label className="field">
+                        <span>NOVA group (1–4)</span>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={1}
+                          value={
+                            currentProduct.novaGroup === null
+                              ? ''
+                              : String(currentProduct.novaGroup)
+                          }
+                          onChange={(event) => updateNovaGroup(event.target.value)}
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Quantity</span>
+                        <Input
+                          type="text"
+                          value={currentProduct.quantity ?? ''}
+                          onChange={(event) =>
+                            updateProductField('quantity', event.target.value)
+                          }
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Serving size</span>
+                        <Input
+                          type="text"
+                          value={currentProduct.servingSize ?? ''}
+                          onChange={(event) =>
+                            updateProductField('servingSize', event.target.value)
+                          }
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Allergens</span>
+                        <Input
+                          type="text"
+                          value={currentProduct.allergens ?? ''}
+                          onChange={(event) =>
+                            updateProductField('allergens', event.target.value)
+                          }
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Categories</span>
+                        <Input
+                          type="text"
+                          value={currentProduct.categories ?? ''}
+                          onChange={(event) =>
+                            updateProductField('categories', event.target.value)
+                          }
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Labels</span>
+                        <Input
+                          type="text"
+                          value={currentProduct.labels ?? ''}
+                          onChange={(event) =>
+                            updateProductField('labels', event.target.value)
+                          }
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Dietary analysis</span>
+                        <Input
+                          type="text"
+                          value={currentProduct.ingredientsAnalysis ?? ''}
+                          onChange={(event) =>
+                            updateProductField(
+                              'ingredientsAnalysis',
+                              event.target.value,
+                            )
+                          }
+                        />
+                      </label>
+                    </div>
+                  ) : currentProduct.nutriScore ||
+                    currentProduct.novaGroup !== null ||
+                    currentProduct.quantity ||
+                    currentProduct.servingSize ||
+                    currentProduct.allergens ||
+                    currentProduct.categories ||
+                    currentProduct.labels ||
+                    currentProduct.ingredientsAnalysis ? (
+                    <div className="spec-summary">
+                      <div className="spec-pills">
+                        {currentProduct.nutriScore && (
+                          <span className="spec-pill">
+                            <span className="spec-pill__label">Nutri-Score</span>
+                            <span className="spec-pill__value">
+                              {currentProduct.nutriScore}
+                            </span>
+                          </span>
+                        )}
+                        {currentProduct.novaGroup !== null && (
+                          <span className="spec-pill">
+                            <span className="spec-pill__label">NOVA group</span>
+                            <span className="spec-pill__value">
+                              {currentProduct.novaGroup}
+                            </span>
+                          </span>
+                        )}
+                        {currentProduct.quantity && (
+                          <span className="spec-pill">
+                            <span className="spec-pill__label">Quantity</span>
+                            <span className="spec-pill__value">
+                              {currentProduct.quantity}
+                            </span>
+                          </span>
+                        )}
+                        {currentProduct.servingSize && (
+                          <span className="spec-pill">
+                            <span className="spec-pill__label">Serving size</span>
+                            <span className="spec-pill__value">
+                              {currentProduct.servingSize}
+                            </span>
+                          </span>
+                        )}
+                        {currentProduct.ingredientsAnalysis
+                          ?.split(',')
+                          .map((entry) => entry.trim())
+                          .filter((entry) => entry.length > 0)
+                          .map((entry) => (
+                            <span key={entry} className="spec-pill">
+                              <span className="spec-pill__value">{entry}</span>
+                            </span>
+                          ))}
+                      </div>
+                      {(currentProduct.allergens ||
+                        currentProduct.categories ||
+                        currentProduct.labels) && (
+                        <div className="spec-pills">
+                          {currentProduct.categories && (
+                            <span className="spec-pill">
+                              <span className="spec-pill__label">Categories</span>
+                              <span className="spec-pill__values">
+                                {currentProduct.categories
+                                  .split(',')
+                                  .map((entry) => entry.trim())
+                                  .filter((entry) => entry.length > 0)
+                                  .map((entry) => (
+                                    <span key={entry} className="spec-pill__value">
+                                      {entry}
+                                    </span>
+                                  ))}
+                              </span>
+                            </span>
+                          )}
+                          {currentProduct.allergens && (
+                            <span className="spec-pill">
+                              <span className="spec-pill__label">Allergens</span>
+                              <span className="spec-pill__values">
+                                {currentProduct.allergens
+                                  .split(',')
+                                  .map((entry) => entry.trim())
+                                  .filter((entry) => entry.length > 0)
+                                  .map((entry) => (
+                                    <span key={entry} className="spec-pill__value">
+                                      {entry}
+                                    </span>
+                                  ))}
+                              </span>
+                            </span>
+                          )}
+                          {currentProduct.labels && (
+                            <span className="spec-pill">
+                              <span className="spec-pill__label">Labels</span>
+                              <span className="spec-pill__values">
+                                {currentProduct.labels
+                                  .split(',')
+                                  .map((entry) => entry.trim())
+                                  .filter((entry) => entry.length > 0)
+                                  .map((entry) => (
+                                    <span key={entry} className="spec-pill__value">
+                                      {entry}
+                                    </span>
+                                  ))}
+                              </span>
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p>
+                      No additional details were provided by Open Food Facts for
+                      this barcode.
+                    </p>
+                  )}
+                </section>
                 <section className="detail-card">
                   <h4>Ingredients</h4>
                   {isDetailsEditMode ? (
