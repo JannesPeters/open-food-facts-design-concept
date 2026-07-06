@@ -18,6 +18,7 @@ const databasePromise = openDB<FoodScannerDatabase>('food-scanner-db', 1, {
 
 const normalizeRecord = (record: SavedProductRecord): SavedProductRecord => ({
   ...record,
+  price: record.price ?? null,
   shop: record.shop ?? null,
   offDataFaulty: record.offDataFaulty ?? false,
 })
@@ -34,4 +35,9 @@ export async function listSavedRecords(): Promise<SavedProductRecord[]> {
 export async function saveRecord(record: SavedProductRecord) {
   const database = await databasePromise
   await database.put('records', normalizeRecord(record))
+}
+
+export async function deleteRecord(recordId: string) {
+  const database = await databasePromise
+  await database.delete('records', recordId)
 }

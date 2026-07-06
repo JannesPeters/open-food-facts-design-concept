@@ -35,7 +35,7 @@ export function downloadRecordsCsv(records: SavedProductRecord[]) {
         record.barcode,
         record.name,
         record.brands,
-        record.price,
+        record.price ?? '',
         record.ingredients,
         readNutrient(record.nutrients, 'energy-kcal_100g'),
         readNutrient(record.nutrients, 'fat_100g'),

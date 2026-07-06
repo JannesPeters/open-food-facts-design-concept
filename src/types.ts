@@ -19,7 +19,7 @@ export interface ProductDetails {
 
 export interface SavedProductRecord extends ProductDetails {
   id: string
-  price: number
+  price: number | null
   savedAt: string
   shop: string | null
   offDataFaulty: boolean
