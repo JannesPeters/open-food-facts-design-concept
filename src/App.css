@@ -306,6 +306,15 @@
   color: var(--text-muted);
 }
 
+.ingredients-preview {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.ingredients-preview button {
+  width: max-content;
+}
+
 .detail-fields {
   display: grid;
   gap: 0.75rem;
@@ -466,6 +475,52 @@
 .nutrition-value-button:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+.price-value-button {
+  appearance: none;
+  width: 100%;
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  border: 1px solid var(--input);
+  border-radius: var(--radius);
+  background: var(--background);
+  padding: 0.625rem 0.875rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text-strong);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.price-value-button:hover {
+  background: var(--secondary);
+}
+
+.price-value-button:focus-visible {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 35%, transparent);
+}
+
+.price-value-button--empty {
+  color: var(--text-muted);
+}
+
+.ingredients-dialog {
+  width: min(100%, 40rem);
+}
+
+.ingredients-dialog__content {
+  max-height: min(60dvh, 28rem);
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .nutrient-dialog {

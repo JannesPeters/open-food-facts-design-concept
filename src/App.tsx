@@ -192,10 +192,16 @@ const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : 'Something went wrong.'
 
 const pillTruncateLimit = 20
+const ingredientsPreviewLimit = 280
 
 const truncatePillValue = (value: string) =>
   value.length > pillTruncateLimit
     ? `${value.slice(0, pillTruncateLimit).trimEnd()}…`
+    : value
+
+const truncateIngredients = (value: string) =>
+  value.length > ingredientsPreviewLimit
+    ? `${value.slice(0, ingredientsPreviewLimit).trimEnd()}…`
     : value
 
 const getPageFromLocation = () =>
@@ -229,6 +235,8 @@ function App() {
   const [offDataFaulty, setOffDataFaulty] = useState(false)
   const [isDetailsEditMode, setIsDetailsEditMode] = useState(false)
   const [editingNutrientId, setEditingNutrientId] = useState<string | null>(null)
+  const [isPriceDialogOpen, setIsPriceDialogOpen] = useState(false)
+  const [isIngredientsDialogOpen, setIsIngredientsDialogOpen] = useState(false)
   const [cameraManuallyStopped, setCameraManuallyStopped] = useState(false)
   const [nutrientValueDrafts, setNutrientValueDrafts] = useState<
     Record<string, string>
@@ -262,6 +270,32 @@ function App() {
   const offDataFaultyMarkerVisible = useMemo(
     () => offDataFaulty || hasProductOverrides,
     [hasProductOverrides, offDataFaulty],
+  )
+
+  const pricePreview = useMemo(() => {
+    const trimmedPrice = priceInput.trim()
+
+    if (!trimmedPrice) {
+      return 'Add price'
+    }
+
+    const parsedPrice = toOptionalNumber(priceInput)
+    return parsedPrice === null ? trimmedPrice : formatPrice(parsedPrice)
+  }, [priceInput])
+
+  const ingredientsPreview = useMemo(
+    () =>
+      currentProduct?.ingredients ? truncateIngredients(currentProduct.ingredients) : null,
+    [currentProduct?.ingredients],
+  )
+
+  const hasLongIngredients = useMemo(
+    () =>
+      Boolean(
+        currentProduct?.ingredients &&
+          currentProduct.ingredients.length > ingredientsPreviewLimit,
+      ),
+    [currentProduct?.ingredients],
   )
 
   const loadSavedHistory = useCallback(async () => {
@@ -362,6 +396,8 @@ function App() {
     setEditingRecordId(null)
     setOffDataFaulty(false)
     setIsDetailsEditMode(false)
+    setIsPriceDialogOpen(false)
+    setIsIngredientsDialogOpen(false)
   }, [])
 
   const openSavedRecord = useCallback(
@@ -399,6 +435,8 @@ function App() {
       setCustomShopName(shopSelection.customShopName)
       setOffDataFaulty(record.offDataFaulty)
       setIsDetailsEditMode(editMode)
+      setIsPriceDialogOpen(false)
+      setIsIngredientsDialogOpen(false)
       setLookupStatus('ready')
       setLookupMessage(message)
       setSaveMessage('')
@@ -450,6 +488,8 @@ function App() {
         setEditingRecordId(null)
         setOffDataFaulty(false)
         setIsDetailsEditMode(false)
+        setIsPriceDialogOpen(false)
+        setIsIngredientsDialogOpen(false)
         setLookupStatus('ready')
         setLookupMessage(
           product.isProductFound
@@ -1382,10 +1422,22 @@ function App() {
                       />
                     </label>
                   ) : (
-                    <p>
-                      {currentProduct.ingredients ??
-                        'No ingredients were provided by Open Food Facts for this barcode.'}
-                    </p>
+                    <div className="ingredients-preview">
+                      <p>
+                        {ingredientsPreview ??
+                          'No ingredients were provided by Open Food Facts for this barcode.'}
+                      </p>
+                      {hasLongIngredients && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setIsIngredientsDialogOpen(true)}
+                        >
+                          View all
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </section>
                 <section className="detail-card">
@@ -1492,16 +1544,14 @@ function App() {
                 <div className="price-fields">
                   <label className="field">
                     <span>Price</span>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="2.49"
-                      value={priceInput}
-                      onChange={(event) => {
-                        setPriceInput(event.target.value)
-                        setSaveMessage('')
-                      }}
-                    />
+                    <button
+                      type="button"
+                      className={`price-value-button${priceInput.trim() ? '' : ' price-value-button--empty'}`}
+                      onClick={() => setIsPriceDialogOpen(true)}
+                      title="Tap to edit"
+                    >
+                      {pricePreview}
+                    </button>
                   </label>
 
                   {editingRecordId && (
@@ -1669,6 +1719,79 @@ function App() {
             </div>
           )
         })()}
+      {isPriceDialogOpen && currentProduct && (
+        <div
+          className="confirm-dialog-backdrop"
+          role="presentation"
+          onClick={() => setIsPriceDialogOpen(false)}
+        >
+          <div
+            className="confirm-dialog nutrient-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="price-edit-title"
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === 'Escape') {
+                setIsPriceDialogOpen(false)
+              }
+            }}
+          >
+            <h2 id="price-edit-title">Price</h2>
+            <label className="nutrient-dialog__field">
+              <span className="nutrient-dialog__unit">EUR</span>
+              <input
+                className="nutrient-dialog__input"
+                type="text"
+                inputMode="decimal"
+                autoFocus
+                placeholder="2.49"
+                value={priceInput}
+                onChange={(event) => {
+                  setPriceInput(event.target.value)
+                  setSaveMessage('')
+                }}
+              />
+            </label>
+            <div className="confirm-dialog__actions">
+              <Button type="button" onClick={() => setIsPriceDialogOpen(false)}>
+                Done
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isIngredientsDialogOpen && currentProduct?.ingredients && (
+        <div
+          className="confirm-dialog-backdrop"
+          role="presentation"
+          onClick={() => setIsIngredientsDialogOpen(false)}
+        >
+          <div
+            className="confirm-dialog ingredients-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ingredients-dialog-title"
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === 'Escape') {
+                setIsIngredientsDialogOpen(false)
+              }
+            }}
+          >
+            <h2 id="ingredients-dialog-title">Ingredients</h2>
+            <p className="ingredients-dialog__content">{currentProduct.ingredients}</p>
+            <div className="confirm-dialog__actions">
+              <Button
+                type="button"
+                onClick={() => setIsIngredientsDialogOpen(false)}
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
