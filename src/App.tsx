@@ -191,6 +191,13 @@ const formatEnergyText = (kilojoules: string, kilocalories: string) => {
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : 'Something went wrong.'
 
+const pillTruncateLimit = 20
+
+const truncatePillValue = (value: string) =>
+  value.length > pillTruncateLimit
+    ? `${value.slice(0, pillTruncateLimit).trimEnd()}…`
+    : value
+
 const getPageFromLocation = () =>
   typeof window !== 'undefined' && window.location.hash === '#product'
     ? 'product'
@@ -221,6 +228,11 @@ function App() {
   const [customShopName, setCustomShopName] = useState('')
   const [offDataFaulty, setOffDataFaulty] = useState(false)
   const [isDetailsEditMode, setIsDetailsEditMode] = useState(false)
+  const [editingNutrientId, setEditingNutrientId] = useState<string | null>(null)
+  const [cameraManuallyStopped, setCameraManuallyStopped] = useState(false)
+  const [nutrientValueDrafts, setNutrientValueDrafts] = useState<
+    Record<string, string>
+  >({})
   const [currentPage, setCurrentPage] = useState<'capture' | 'product'>(
     getPageFromLocation,
   )
@@ -260,6 +272,10 @@ function App() {
   useEffect(() => {
     void loadSavedHistory()
   }, [loadSavedHistory])
+
+  useEffect(() => {
+    setNutrientValueDrafts({})
+  }, [currentProduct?.barcode, isDetailsEditMode])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -516,6 +532,21 @@ function App() {
     }
   }, [clearVideoStream, handleLookupProduct, scannerStatus, stopScanner])
 
+  useEffect(() => {
+    if (currentPage !== 'capture') {
+      setCameraManuallyStopped((stopped) => (stopped ? false : stopped))
+      return
+    }
+
+    if (
+      cameraSupported &&
+      !cameraManuallyStopped &&
+      scannerStatus === 'idle'
+    ) {
+      void startScanner()
+    }
+  }, [cameraManuallyStopped, currentPage, scannerStatus, startScanner])
+
   const handleLookupSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault()
@@ -573,6 +604,13 @@ function App() {
 
   const updateNutrientValue = useCallback(
     (nutrientId: string, value: string, part: 'value' | 'kj' | 'kcal') => {
+      if (part === 'value') {
+        setNutrientValueDrafts((previousDrafts) => ({
+          ...previousDrafts,
+          [nutrientId]: value,
+        }))
+      }
+
       setCurrentProduct((previousProduct) => {
         if (!previousProduct) {
           return previousProduct
@@ -671,14 +709,6 @@ function App() {
     setSaveMessage(`Removed ${recordPendingDeletion.name ?? 'item'}.`)
     setRecordPendingDeletion(null)
   }, [editingRecordId, recordPendingDeletion, resetProductFlow])
-
-  const handleCancelEdit = useCallback(() => {
-    resetProductFlow()
-    setLookupStatus('idle')
-    setLookupMessage(initialLookupMessage)
-    setSaveMessage('')
-    navigateToPage('capture')
-  }, [navigateToPage, resetProductFlow])
 
   const handleSave = useCallback(async () => {
     if (!currentProduct) {
@@ -827,7 +857,10 @@ function App() {
             <div className="scanner-actions">
               <Button
                 type="button"
-                onClick={() => void startScanner()}
+                onClick={() => {
+                  setCameraManuallyStopped(false)
+                  void startScanner()
+                }}
                 disabled={scannerStatus === 'starting'}
               >
                 {scannerStatus === 'active' ? 'Restart camera' : 'Start camera'}
@@ -835,7 +868,10 @@ function App() {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => stopScanner()}
+                onClick={() => {
+                  setCameraManuallyStopped(true)
+                  stopScanner()
+                }}
                 disabled={scannerStatus !== 'active'}
               >
                 Stop camera
@@ -973,7 +1009,7 @@ function App() {
         </>
       ) : (
         <section className="panel panel--product-page">
-          <div className="panel-header panel-header--product-page">
+          <div className="panel-header panel-header--product-page detail-fixed-header">
             <Button
               type="button"
               variant="secondary"
@@ -982,9 +1018,41 @@ function App() {
             >
               Back
             </Button>
+
+            {currentProduct && (
+              <div className="detail-header-actions">
+                {isDetailsEditMode ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleCancelProductEdit}
+                  >
+                    Cancel details edit
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleStartProductEdit}
+                  >
+                    Edit details
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void handleSave()}
+                >
+                  {editingRecordId ? 'Update saved item' : 'Save item locally'}
+                </Button>
+              </div>
+            )}
           </div>
 
-          {renderShopPicker()}
+          <div className="detail-body">
+            {renderShopPicker()}
 
           {currentProduct ? (
             <article className="product-card">
@@ -1196,16 +1264,22 @@ function App() {
                         {currentProduct.quantity && (
                           <span className="spec-pill">
                             <span className="spec-pill__label">Quantity</span>
-                            <span className="spec-pill__value">
-                              {currentProduct.quantity}
+                            <span
+                              className="spec-pill__value"
+                              title={currentProduct.quantity}
+                            >
+                              {truncatePillValue(currentProduct.quantity)}
                             </span>
                           </span>
                         )}
                         {currentProduct.servingSize && (
                           <span className="spec-pill">
                             <span className="spec-pill__label">Serving size</span>
-                            <span className="spec-pill__value">
-                              {currentProduct.servingSize}
+                            <span
+                              className="spec-pill__value"
+                              title={currentProduct.servingSize}
+                            >
+                              {truncatePillValue(currentProduct.servingSize)}
                             </span>
                           </span>
                         )}
@@ -1215,7 +1289,9 @@ function App() {
                           .filter((entry) => entry.length > 0)
                           .map((entry) => (
                             <span key={entry} className="spec-pill">
-                              <span className="spec-pill__value">{entry}</span>
+                              <span className="spec-pill__value" title={entry}>
+                                {truncatePillValue(entry)}
+                              </span>
                             </span>
                           ))}
                       </div>
@@ -1232,8 +1308,12 @@ function App() {
                                   .map((entry) => entry.trim())
                                   .filter((entry) => entry.length > 0)
                                   .map((entry) => (
-                                    <span key={entry} className="spec-pill__value">
-                                      {entry}
+                                    <span
+                                      key={entry}
+                                      className="spec-pill__value"
+                                      title={entry}
+                                    >
+                                      {truncatePillValue(entry)}
                                     </span>
                                   ))}
                               </span>
@@ -1248,8 +1328,12 @@ function App() {
                                   .map((entry) => entry.trim())
                                   .filter((entry) => entry.length > 0)
                                   .map((entry) => (
-                                    <span key={entry} className="spec-pill__value">
-                                      {entry}
+                                    <span
+                                      key={entry}
+                                      className="spec-pill__value"
+                                      title={entry}
+                                    >
+                                      {truncatePillValue(entry)}
                                     </span>
                                   ))}
                               </span>
@@ -1264,8 +1348,12 @@ function App() {
                                   .map((entry) => entry.trim())
                                   .filter((entry) => entry.length > 0)
                                   .map((entry) => (
-                                    <span key={entry} className="spec-pill__value">
-                                      {entry}
+                                    <span
+                                      key={entry}
+                                      className="spec-pill__value"
+                                      title={entry}
+                                    >
+                                      {truncatePillValue(entry)}
                                     </span>
                                   ))}
                               </span>
@@ -1360,7 +1448,12 @@ function App() {
                                     <Input
                                       type="text"
                                       inputMode="decimal"
-                                      value={nutrient.value ?? ''}
+                                      value={
+                                        nutrientValueDrafts[nutrient.id] ??
+                                        (nutrient.value === null
+                                          ? ''
+                                          : String(nutrient.value))
+                                      }
                                       onChange={(event) =>
                                         updateNutrientValue(
                                           nutrient.id,
@@ -1372,12 +1465,19 @@ function App() {
                                     <span>{nutrient.unit}</span>
                                   </div>
                                 )
-                              ) : nutrient.text ? (
-                                nutrient.text
-                              ) : nutrient.value !== null ? (
-                                `${nutrient.value} ${nutrient.unit}`.trim()
                               ) : (
-                                '—'
+                                <button
+                                  type="button"
+                                  className="nutrition-value-button"
+                                  onClick={() => setEditingNutrientId(nutrient.id)}
+                                  title="Tap to edit"
+                                >
+                                  {nutrient.text
+                                    ? nutrient.text
+                                    : nutrient.value !== null
+                                      ? `${nutrient.value} ${nutrient.unit}`.trim()
+                                      : '—'}
+                                </button>
                               )}
                             </td>
                           </tr>
@@ -1418,40 +1518,6 @@ function App() {
                     </label>
                   )}
                 </div>
-
-                <div className="price-actions">
-                  {isDetailsEditMode ? (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={handleCancelProductEdit}
-                    >
-                      Cancel details edit
-                    </Button>
-                  ) : editingRecordId ? (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={handleCancelEdit}
-                    >
-                      Cancel edit
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={handleStartProductEdit}
-                    >
-                      Edit details
-                    </Button>
-                  )}
-                  <Button
-                    type="button"
-                    onClick={() => void handleSave()}
-                  >
-                    {editingRecordId ? 'Update saved item' : 'Save item locally'}
-                  </Button>
-                </div>
               </div>
 
               {saveMessage && <p className="helper-text">{saveMessage}</p>}
@@ -1464,6 +1530,7 @@ function App() {
               </p>
             </div>
           )}
+          </div>
         </section>
       )}
       {recordPendingDeletion && (
@@ -1504,6 +1571,104 @@ function App() {
           </div>
         </div>
       )}
+      {editingNutrientId &&
+        currentProduct &&
+        (() => {
+          const nutrient = currentProduct.nutrients.find(
+            (item) => item.id === editingNutrientId,
+          )
+
+          if (!nutrient) {
+            return null
+          }
+
+          const energyParts = parseEnergyText(nutrient.text)
+          const closeDialog = () => setEditingNutrientId(null)
+
+          return (
+            <div
+              className="confirm-dialog-backdrop"
+              role="presentation"
+              onClick={closeDialog}
+            >
+              <div
+                className="confirm-dialog nutrient-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="nutrient-edit-title"
+                onClick={(event) => event.stopPropagation()}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === 'Escape') {
+                    closeDialog()
+                  }
+                }}
+              >
+                <h2 id="nutrient-edit-title">{nutrient.label}</h2>
+                {nutrient.id === 'energy' ? (
+                  <div className="nutrient-dialog__fields">
+                    <label className="nutrient-dialog__field">
+                      <span className="nutrient-dialog__unit">kJ</span>
+                      <input
+                        className="nutrient-dialog__input"
+                        type="text"
+                        inputMode="decimal"                        autoFocus
+                        value={energyParts.kilojoules}
+                        onChange={(event) =>
+                          updateNutrientValue(
+                            nutrient.id,
+                            event.target.value,
+                            'kj',
+                          )
+                        }
+                      />
+                    </label>
+                    <label className="nutrient-dialog__field">
+                      <span className="nutrient-dialog__unit">kcal</span>
+                      <input
+                        className="nutrient-dialog__input"
+                        type="text"
+                        inputMode="decimal"
+                        value={energyParts.kilocalories}
+                        onChange={(event) =>
+                          updateNutrientValue(
+                            nutrient.id,
+                            event.target.value,
+                            'kcal',
+                          )
+                        }
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <label className="nutrient-dialog__field">
+                    <input
+                      className="nutrient-dialog__input"
+                      type="text"
+                      inputMode="decimal"                      autoFocus
+                      value={
+                        nutrientValueDrafts[nutrient.id] ??
+                        (nutrient.value === null ? '' : String(nutrient.value))
+                      }
+                      onChange={(event) =>
+                        updateNutrientValue(
+                          nutrient.id,
+                          event.target.value,
+                          'value',
+                        )
+                      }
+                    />
+                    <span className="nutrient-dialog__unit">{nutrient.unit}</span>
+                  </label>
+                )}
+                <div className="confirm-dialog__actions">
+                  <Button type="button" onClick={closeDialog}>
+                    Done
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
     </main>
   )
 }
