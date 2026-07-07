@@ -39,6 +39,17 @@ Open the local URL in a mobile browser or a desktop browser that supports camera
 - `npm run lint` - run oxlint
 - `npm run preview` - preview the production build
 
+## Production deployment
+
+Pushes to `main` deploy to Vercel through `.github/workflows/vercel-production.yml`.
+
+Set these repository settings before the first run:
+
+- Repository secret: `VERCEL_TOKEN`
+- Repository variables: `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`
+
+The workflow targets the existing Vercel project `supbase-fsa`.
+
 ## Notes for the next iteration
 
 - Add item editing and deletion in saved history
