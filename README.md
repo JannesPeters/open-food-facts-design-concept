@@ -2,6 +2,8 @@
 
 Mobile-first MVP for scanning grocery product barcodes, fetching product details from Open Food Facts, adding a local price, saving the result in the browser, and exporting saved items as CSV.
 
+The app now also ships as an installable Progressive Web App, so it can be added to a phone home screen and launched like a native app.
+
 ## MVP features
 
 - Camera-based barcode scanning in the browser
@@ -29,6 +31,13 @@ Mobile-first MVP for scanning grocery product barcodes, fetching product details
 
 Open the local URL in a mobile browser or a desktop browser that supports camera access. Camera permissions work on `localhost` during development.
 
+## Installing on a phone
+
+- **iPhone / iPad (Safari):** open the app, tap **Share**, then **Add to Home Screen**
+- **Android (Chrome/Edge):** open the app and use **Install app** from the browser menu
+
+Once installed, the app opens in standalone mode and keeps previously saved history available offline. Live barcode lookups still need a network connection.
+
 ## Available scripts
 
 - `./scripts/install.sh` - install project dependencies
@@ -54,4 +63,4 @@ The workflow targets the existing Vercel project `supbase-fsa`.
 
 - Add item editing and deletion in saved history
 - Support multiple export formats and richer nutrient views
-- Improve offline resilience with a service worker and installable PWA behavior
+- Expand offline support beyond the app shell and cached product assets
