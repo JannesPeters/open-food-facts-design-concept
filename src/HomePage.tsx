@@ -1,6 +1,7 @@
 import { Globe, ScanLine, Search, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import SiteHeader from '@/components/SiteHeader'
 
 const highlights = [
   {
@@ -27,31 +28,7 @@ const highlights = [
 function HomePage() {
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="border-b border-border">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-4">
-          <Link to="/" className="flex items-center gap-3">
-            <img
-              src="/off-logo.svg"
-              alt="Open Food Facts"
-              className="h-9 w-auto dark:hidden"
-            />
-            <img
-              src="/off-logo-dark.svg"
-              alt="Open Food Facts"
-              className="hidden h-9 w-auto dark:block"
-            />
-            <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
-              Concept
-            </span>
-          </Link>
-          <Button asChild variant="outline" size="sm">
-            <Link to="/scanner">
-              <ScanLine className="size-4" />
-              Scanner
-            </Link>
-          </Button>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center gap-12 px-6 py-16 text-center">
         <div className="space-y-4">

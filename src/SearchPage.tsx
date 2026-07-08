@@ -1,55 +1,16 @@
-import { ArrowLeft, ImageOff, ScanLine, Search, X } from 'lucide-react'
+import { ArrowLeft, ImageOff, Search, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
+import ScoreBadge from '@/components/ScoreBadge'
+import SiteHeader from '@/components/SiteHeader'
 import { searchProducts } from '@/lib/openFoodFacts'
+import { ecoScoreRating, novaRating, nutriScoreRating } from '@/lib/scores'
 import type { ProductSearchResult } from '@/types'
 
 const exampleQueries = ['Nutella', 'Oat milk', 'Granola', 'Sparkling water']
-
-const ratingClasses: Record<number, string> = {
-  1: 'bg-rating-1 text-rating-1-foreground',
-  2: 'bg-rating-2 text-rating-2-foreground',
-  3: 'bg-rating-3 text-rating-3-foreground',
-  4: 'bg-rating-4 text-rating-4-foreground',
-  5: 'bg-rating-5 text-rating-5-foreground',
-}
-
-const nutriScoreRating: Record<string, number> = {
-  A: 1,
-  B: 2,
-  C: 3,
-  D: 4,
-  E: 5,
-}
-
-const novaRating: Record<number, number> = {
-  1: 1,
-  2: 3,
-  3: 4,
-  4: 5,
-}
-
-function ScoreBadge({ label, value, rating }: {
-  label: string
-  value: string
-  rating: number
-}) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold',
-        ratingClasses[rating] ?? 'bg-secondary text-secondary-foreground',
-      )}
-    >
-      <span className="opacity-80">{label}</span>
-      <span>{value}</span>
-    </span>
-  )
-}
 
 function ResultCard({ product }: { product: ProductSearchResult }) {
   const [imageFailed, setImageFailed] = useState(false)
@@ -97,6 +58,15 @@ function ResultCard({ product }: { product: ProductSearchResult }) {
                 label="Nutri"
                 value={product.nutriScore}
                 rating={nutriScoreRating[product.nutriScore] ?? 3}
+                size="sm"
+              />
+            )}
+            {product.ecoScore && (
+              <ScoreBadge
+                label="Eco"
+                value={product.ecoScore}
+                rating={ecoScoreRating[product.ecoScore] ?? 3}
+                size="sm"
               />
             )}
             {product.novaGroup !== null && (
@@ -104,6 +74,7 @@ function ResultCard({ product }: { product: ProductSearchResult }) {
                 label="NOVA"
                 value={String(product.novaGroup)}
                 rating={novaRating[product.novaGroup] ?? 3}
+                size="sm"
               />
             )}
           </div>
@@ -139,6 +110,9 @@ function SearchPage() {
   const [status, setStatus] = useState<Status>('idle')
   const [results, setResults] = useState<ProductSearchResult[]>([])
   const [count, setCount] = useState(0)
+  const [page, setPage] = useState(1)
+  const [pageCount, setPageCount] = useState(0)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const requestIdRef = useRef(0)
@@ -149,6 +123,8 @@ function SearchPage() {
       setStatus('idle')
       setResults([])
       setCount(0)
+      setPage(1)
+      setPageCount(0)
       return
     }
 
@@ -157,12 +133,14 @@ function SearchPage() {
     setErrorMessage(null)
 
     try {
-      const response = await searchProducts(trimmed)
+      const response = await searchProducts(trimmed, 1)
       if (requestId !== requestIdRef.current) {
         return
       }
       setResults(response.results)
       setCount(response.count)
+      setPage(response.page)
+      setPageCount(response.pageCount)
       setStatus('success')
     } catch (error) {
       if (requestId !== requestIdRef.current) {
@@ -176,6 +154,40 @@ function SearchPage() {
       setStatus('error')
     }
   }, [])
+
+  const loadMore = useCallback(async () => {
+    const trimmed = activeQuery.trim()
+    if (!trimmed || isLoadingMore || page >= pageCount) {
+      return
+    }
+
+    const requestId = requestIdRef.current
+    const nextPage = page + 1
+    setIsLoadingMore(true)
+
+    try {
+      const response = await searchProducts(trimmed, nextPage)
+      if (requestId !== requestIdRef.current) {
+        return
+      }
+      setResults((previous) => [...previous, ...response.results])
+      setPage(response.page)
+      setPageCount(response.pageCount)
+    } catch (error) {
+      if (requestId !== requestIdRef.current) {
+        return
+      }
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Something went wrong loading more results.',
+      )
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setIsLoadingMore(false)
+      }
+    }
+  }, [activeQuery, isLoadingMore, page, pageCount])
 
   useEffect(() => {
     setInputValue(activeQuery)
@@ -199,31 +211,7 @@ function SearchPage() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="border-b border-border">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-4">
-          <Link to="/" className="flex items-center gap-3">
-            <img
-              src="/off-logo.svg"
-              alt="Open Food Facts"
-              className="h-9 w-auto dark:hidden"
-            />
-            <img
-              src="/off-logo-dark.svg"
-              alt="Open Food Facts"
-              className="hidden h-9 w-auto dark:block"
-            />
-            <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
-              Concept
-            </span>
-          </Link>
-          <Button asChild variant="outline" size="sm">
-            <Link to="/scanner">
-              <ScanLine className="size-4" />
-              Scanner
-            </Link>
-          </Button>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
         <div className="mb-8 space-y-6">
@@ -343,6 +331,18 @@ function SearchPage() {
                 <ResultCard key={product.barcode} product={product} />
               ))}
             </ul>
+            {page < pageCount && (
+              <div className="flex justify-center pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void loadMore()}
+                  disabled={isLoadingMore}
+                >
+                  {isLoadingMore ? 'Loading…' : 'Load more'}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </main>
