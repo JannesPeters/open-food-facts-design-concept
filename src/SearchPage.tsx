@@ -12,6 +12,19 @@ import type { ProductSearchResult } from '@/types'
 
 const exampleQueries = ['Nutella', 'Oat milk', 'Granola', 'Sparkling water']
 
+interface SearchSnapshot {
+  results: ProductSearchResult[]
+  count: number
+  page: number
+  pageCount: number
+  scrollY: number
+}
+
+// Preserves search results (including any "load more" pages) and scroll
+// position across client-side navigation, so returning from a product detail
+// view is instant instead of re-fetching and flashing skeletons.
+const searchSnapshots = new Map<string, SearchSnapshot>()
+
 function ResultCard({ product }: { product: ProductSearchResult }) {
   const [imageFailed, setImageFailed] = useState(false)
   const showImage = product.imageUrl && !imageFailed
@@ -22,7 +35,7 @@ function ResultCard({ product }: { product: ProductSearchResult }) {
         to={`/product/${product.barcode}`}
         className="flex flex-1 flex-col overflow-hidden rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <div className="flex aspect-square items-center justify-center overflow-hidden bg-muted">
+        <div className="flex aspect-[2/1] items-center justify-center overflow-hidden bg-muted">
           {showImage ? (
             <img
               src={product.imageUrl ?? ''}
@@ -87,7 +100,7 @@ function ResultCard({ product }: { product: ProductSearchResult }) {
 function ResultSkeleton() {
   return (
     <li className="flex flex-col overflow-hidden rounded-xl border border-border bg-card">
-      <div className="aspect-square animate-pulse bg-muted" />
+      <div className="aspect-[2/1] animate-pulse bg-muted" />
       <div className="flex flex-col gap-2 p-4">
         <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
         <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
@@ -106,12 +119,18 @@ function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const activeQuery = searchParams.get('q')?.trim() ?? ''
 
+  const initialSnapshot = activeQuery ? searchSnapshots.get(activeQuery) : undefined
+
   const [inputValue, setInputValue] = useState(activeQuery)
-  const [status, setStatus] = useState<Status>('idle')
-  const [results, setResults] = useState<ProductSearchResult[]>([])
-  const [count, setCount] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageCount, setPageCount] = useState(0)
+  const [status, setStatus] = useState<Status>(
+    initialSnapshot ? 'success' : 'idle',
+  )
+  const [results, setResults] = useState<ProductSearchResult[]>(
+    initialSnapshot?.results ?? [],
+  )
+  const [count, setCount] = useState(initialSnapshot?.count ?? 0)
+  const [page, setPage] = useState(initialSnapshot?.page ?? 1)
+  const [pageCount, setPageCount] = useState(initialSnapshot?.pageCount ?? 0)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -191,8 +210,41 @@ function SearchPage() {
 
   useEffect(() => {
     setInputValue(activeQuery)
+
+    const snapshot = activeQuery ? searchSnapshots.get(activeQuery) : undefined
+    if (snapshot) {
+      requestIdRef.current += 1
+      setResults(snapshot.results)
+      setCount(snapshot.count)
+      setPage(snapshot.page)
+      setPageCount(snapshot.pageCount)
+      setErrorMessage(null)
+      setStatus('success')
+      const { scrollY } = snapshot
+      requestAnimationFrame(() => window.scrollTo(0, scrollY))
+      return
+    }
+
     void runSearch(activeQuery)
   }, [activeQuery, runSearch])
+
+  const stateRef = useRef({ results, count, page, pageCount, status })
+  stateRef.current = { results, count, page, pageCount, status }
+
+  useEffect(() => {
+    return () => {
+      const current = stateRef.current
+      if (activeQuery && current.status === 'success') {
+        searchSnapshots.set(activeQuery, {
+          results: current.results,
+          count: current.count,
+          page: current.page,
+          pageCount: current.pageCount,
+          scrollY: window.scrollY,
+        })
+      }
+    }
+  }, [activeQuery])
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
