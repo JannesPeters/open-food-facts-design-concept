@@ -54,13 +54,13 @@
 }
 
 .status-pill--good {
-  background: rgba(17, 185, 129, 0.14);
-  color: #047857;
+  background: var(--success-subtle);
+  color: var(--success-strong);
 }
 
 .status-pill--bad {
-  background: rgba(239, 68, 68, 0.14);
-  color: #b91c1c;
+  background: var(--destructive-subtle);
+  color: var(--destructive-strong);
 }
 
 .status-pill--neutral {
@@ -90,7 +90,7 @@
   place-items: center;
   padding: 1.5rem;
   text-align: center;
-  color: #e2e8f0;
+  color: var(--scrim-foreground);
 }
 
 .scanner-actions,
@@ -215,7 +215,7 @@
 }
 
 .helper-text--error {
-  color: #b91c1c;
+  color: var(--destructive-strong);
 }
 
 .product-card {
@@ -254,8 +254,8 @@
   align-self: flex-start;
   border-radius: 999px;
   padding: 0.35rem 0.75rem;
-  background: rgba(239, 68, 68, 0.14);
-  color: #b91c1c;
+  background: var(--destructive-subtle);
+  color: var(--destructive-strong);
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -613,8 +613,8 @@
 .history-card__badge {
   border-radius: 999px;
   padding: 0.25rem 0.6rem;
-  background: rgba(239, 68, 68, 0.14);
-  color: #b91c1c;
+  background: var(--destructive-subtle);
+  color: var(--destructive-strong);
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -638,7 +638,7 @@
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  background: rgba(15, 23, 42, 0.28);
+  background: var(--overlay);
 }
 
 .confirm-dialog {

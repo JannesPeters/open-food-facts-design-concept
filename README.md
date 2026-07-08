@@ -21,9 +21,35 @@ Open Food Facts holds one of the largest open databases of food products in the 
 
 - React 19 + TypeScript
 - Vite for local development and production builds
-- Tailwind CSS for styling
+- Tailwind CSS v4 for styling
+- **shadcn/ui** as the design system (see below)
 - `@zxing/browser` for in-site barcode scanning
 - Open Food Facts public API as the data source
+
+## Design system
+
+The UI is built with **shadcn/ui** — copy-in React components rather than an installed component package. Configuration lives in `components.json`.
+
+- **Style:** `new-york`, non-RSC, TSX components
+- **Components:** live in `src/components/ui/` (button, card, input, textarea, select, separator, badge, label). Add new ones with the shadcn CLI or by following the same pattern.
+- **Primitives:** [Radix UI](https://www.radix-ui.com/) (`@radix-ui/react-*`) provide the accessible behavior under the hood.
+- **Styling tokens:** Tailwind CSS v4 with CSS variables (base color **slate**), defined in `src/index.css`.
+- **Variants & class merging:** `class-variance-authority` for component variants, plus the `cn()` helper (`clsx` + `tailwind-merge`) in `src/lib/utils.ts`.
+- **Animations:** `tailwindcss-animate`.
+- **Icons:** `lucide-react`.
+- **Alias:** `@/` maps to `src/` (e.g. `@/components/ui/button`, `@/lib/utils`).
+
+### Color system
+
+Colors are defined once as CSS variables in `src/index.css` and exposed as semantic Tailwind utilities via `@theme inline`. **Always use the semantic utilities — never hard-code hex values in components.**
+
+- **Brand:** the exact Open Food Facts logo **orange** (`--primary` = `--brand` = `#ff8c14`). Buttons use dark-brown text on the orange (passes WCAG AAA; white would fail contrast). Warm brown neutrals echo the OFF wordmark.
+- **Surfaces & text:** `background`/`foreground`, `card`, `popover`, `muted`/`muted-foreground`, `secondary`, `accent`, `border`, `input`, `ring`.
+- **Status:** `success`, `warning`, `info`, and `destructive` — each with a `-foreground` pair (plus `-subtle` / `-strong` variables for tinted badges).
+- **Food-score rating scale:** a single, shared 5-step palette — `bg-rating-1` (best) … `bg-rating-5` (worst), each with a matching `-foreground`. **Nutri-Score, NOVA, and Eco-Score all map onto this one scale** rather than each having its own colors.
+- **Dark mode:** fully supported. It activates automatically from the OS preference (`prefers-color-scheme`) and can be forced with a `.dark` (or `.light`) class on `<html>`. The rating scale stays consistent across themes so grades remain recognizable.
+
+The Open Food Facts site was the *inspiration* only — its palette is inconsistent and has no dark mode. This system deliberately improves on it with a single coherent token set and first-class theming.
 
 ## Getting started
 

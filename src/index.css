@@ -1,13 +1,46 @@
 @import 'tailwindcss';
 @plugin 'tailwindcss-animate';
 
+/*
+ * Dark mode variant — make `dark:` utilities respond to BOTH an explicit
+ * `.dark` class on <html> and the OS `prefers-color-scheme: dark` (unless a
+ * `.light` class opts out). Keeps utilities in sync with the token blocks below.
+ */
+@custom-variant dark {
+  &:where(.dark, .dark *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not(.light) *, :root:not(.light)) {
+      @slot;
+    }
+  }
+}
+
+/*
+ * Design system — color tokens
+ * ------------------------------------------------------------------
+ * Anchored on the real Open Food Facts brand: a warm ORANGE primary
+ * (the "FOOD" highlight / mascot) over warm BROWN neutrals (the
+ * "open … facts" wordmark), plus the standardized Nutri-Score / NOVA /
+ * Eco-Score palettes. Rebuilt as a single, coherent, accessible token
+ * set with full dark mode.
+ *
+ * Usage: always consume the semantic Tailwind utilities that these
+ * variables back (e.g. bg-background, text-muted-foreground, bg-primary,
+ * border-border, bg-nutri-a). Do NOT hard-code hex values in components.
+ */
+
 @theme inline {
+  /* Surfaces & text */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
+
+  /* Brand & UI intent */
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
@@ -16,54 +49,249 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+
+  /* Brand highlight (the vivid "FOOD" orange, for badges/accents) */
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+
+  /* Semantic status */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+
+  /* Lines & focus */
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  /* Food-score rating scale — a SINGLE 5-step palette shared by
+   * Nutri-Score, NOVA and Eco-Score (rating-1 best … rating-5 worst) */
+  --color-rating-1: var(--rating-1);
+  --color-rating-1-foreground: var(--rating-1-foreground);
+  --color-rating-2: var(--rating-2);
+  --color-rating-2-foreground: var(--rating-2-foreground);
+  --color-rating-3: var(--rating-3);
+  --color-rating-3-foreground: var(--rating-3-foreground);
+  --color-rating-4: var(--rating-4);
+  --color-rating-4-foreground: var(--rating-4-foreground);
+  --color-rating-5: var(--rating-5);
+  --color-rating-5-foreground: var(--rating-5-foreground);
+
+  /* Radii */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* ------------------------------------------------------------------ */
+/* Light theme (default)                                              */
+/* ------------------------------------------------------------------ */
 :root {
   color-scheme: light;
   font-family:
     Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  background: #ffffff;
-  color: #1f2937;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --background: #ffffff;
-  --foreground: #0f172a;
+  /* Surfaces & text — warm off-white + warm brown ink */
+  --background: #fffdfb;
+  --foreground: #2b1c10;
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #2b1c10;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #2563eb;
-  --primary-foreground: #ffffff;
-  --secondary: #f3f6fa;
-  --secondary-foreground: #0f172a;
-  --muted: #f6f8fb;
-  --muted-foreground: #64748b;
-  --accent: #e0e7ff;
-  --accent-foreground: #1e3a8a;
-  --destructive: #ef4444;
+  --popover-foreground: #2b1c10;
+
+  /* Brand — the exact Open Food Facts logo orange. Dark-brown text passes
+   * WCAG AAA (~7.5:1); white would fail, so the button uses dark text. */
+  --primary: #ff8c14;
+  --primary-foreground: #2b1200;
+  --secondary: #f6efe6;
+  --secondary-foreground: #3a2413;
+  --muted: #f7f2ea;
+  --muted-foreground: #7a6a5b;
+  --accent: #ffedd5;
+  --accent-foreground: #9a4708;
+
+  /* Vivid brand highlight (the "FOOD" orange, for badges/logo echo) */
+  --brand: #ff8c14;
+  --brand-foreground: #2b1200;
+
+  /* Semantic status */
+  --success: #157f3c;
+  --success-foreground: #ffffff;
+  --success-subtle: #e4f5ea;
+  --success-strong: #0f7a3b;
+  --warning: #a16207;
+  --warning-foreground: #ffffff;
+  --warning-subtle: #fbf1d8;
+  --warning-strong: #855309;
+  --info: #1d4ed8;
+  --info-foreground: #ffffff;
+  --info-subtle: #e7edfd;
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  --border: #d8e0ea;
-  --input: #cfd8e3;
-  --ring: #2563eb;
+  --destructive-subtle: #fdecec;
+  --destructive-strong: #c0271b;
+
+  /* Lines & focus — ring uses the vivid brand orange for a lively focus state */
+  --border: #ece3d7;
+  --input: #e0d5c6;
+  --ring: #ff8c14;
+
+  /* Overlays */
+  --overlay: rgba(28, 16, 6, 0.45);
+  --scrim-foreground: #f4ece2;
+
   --radius: 0.75rem;
+
+  /* Food-score rating scale — ONE shared 5-step palette (best → worst).
+   * Nutri-Score A–E, Eco-Score A–E and NOVA 1–4 all map onto these. */
+  --rating-1: #038141;
+  --rating-1-foreground: #ffffff;
+  --rating-2: #6aa814;
+  --rating-2-foreground: #0f1f05;
+  --rating-3: #e0a400;
+  --rating-3-foreground: #2e2200;
+  --rating-4: #e37b00;
+  --rating-4-foreground: #ffffff;
+  --rating-5: #d0341b;
+  --rating-5-foreground: #ffffff;
   --surface: var(--card);
   --surface-muted: var(--muted);
   --text-muted: var(--muted-foreground);
   --text-strong: var(--foreground);
+}
+
+/* ------------------------------------------------------------------ */
+/* Dark theme                                                         */
+/* Applied via a `.dark` class on <html>, or automatically when the   */
+/* OS prefers dark and no explicit `.light`/`.dark` class is set.      */
+/* ------------------------------------------------------------------ */
+.dark {
+  color-scheme: dark;
+
+  --background: #17110c;
+  --foreground: #f4ece2;
+  --card: #201811;
+  --card-foreground: #f4ece2;
+  --popover: #201811;
+  --popover-foreground: #f4ece2;
+
+  --primary: #ff9d3c;
+  --primary-foreground: #2b1200;
+  --secondary: #2a2016;
+  --secondary-foreground: #f4ece2;
+  --muted: #241b13;
+  --muted-foreground: #b7a794;
+  --accent: #3a2410;
+  --accent-foreground: #ffb366;
+
+  --brand: #ff9d3c;
+  --brand-foreground: #2b1200;
+
+  --success: #34c46e;
+  --success-foreground: #04180c;
+  --success-subtle: #10291a;
+  --success-strong: #6fe3a0;
+  --warning: #e6bf5c;
+  --warning-foreground: #2a1f04;
+  --warning-subtle: #2e2814;
+  --warning-strong: #f2d488;
+  --info: #6fa0ff;
+  --info-foreground: #061733;
+  --info-subtle: #172441;
+  --destructive: #f0455f;
+  --destructive-foreground: #2a0509;
+  --destructive-subtle: #33161a;
+  --destructive-strong: #ff9aa6;
+
+  --border: #33271b;
+  --input: #3a2c1d;
+  --ring: #ff9d3c;
+
+  --overlay: rgba(10, 6, 2, 0.6);
+  --scrim-foreground: #f4ece2;
+
+  /* Food-score rating scale — same saturated stops across themes */
+  --rating-1: #10a355;
+  --rating-1-foreground: #04180c;
+  --rating-2: #86c520;
+  --rating-2-foreground: #0f1f05;
+  --rating-3: #f0b923;
+  --rating-3-foreground: #2e2200;
+  --rating-4: #f58a1f;
+  --rating-4-foreground: #2b1200;
+  --rating-5: #ec5a43;
+  --rating-5-foreground: #2a0509;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not(.dark) {
+    color-scheme: dark;
+
+    --background: #17110c;
+    --foreground: #f4ece2;
+    --card: #201811;
+    --card-foreground: #f4ece2;
+    --popover: #201811;
+    --popover-foreground: #f4ece2;
+
+    --primary: #ff9d3c;
+    --primary-foreground: #2b1200;
+    --secondary: #2a2016;
+    --secondary-foreground: #f4ece2;
+    --muted: #241b13;
+    --muted-foreground: #b7a794;
+    --accent: #3a2410;
+    --accent-foreground: #ffb366;
+
+    --brand: #ff9d3c;
+    --brand-foreground: #2b1200;
+
+    --success: #34c46e;
+    --success-foreground: #04180c;
+    --success-subtle: #10291a;
+    --success-strong: #6fe3a0;
+    --warning: #e6bf5c;
+    --warning-foreground: #2a1f04;
+    --warning-subtle: #2e2814;
+    --warning-strong: #f2d488;
+    --info: #6fa0ff;
+    --info-foreground: #061733;
+    --info-subtle: #172441;
+    --destructive: #f0455f;
+    --destructive-foreground: #2a0509;
+    --destructive-subtle: #33161a;
+    --destructive-strong: #ff9aa6;
+
+    --border: #33271b;
+    --input: #3a2c1d;
+    --ring: #ff9d3c;
+
+    --overlay: rgba(10, 6, 2, 0.6);
+    --scrim-foreground: #f4ece2;
+
+    --rating-1: #10a355;
+    --rating-1-foreground: #04180c;
+    --rating-2: #86c520;
+    --rating-2-foreground: #0f1f05;
+    --rating-3: #f0b923;
+    --rating-3-foreground: #2e2200;
+    --rating-4: #f58a1f;
+    --rating-4-foreground: #2b1200;
+    --rating-5: #ec5a43;
+    --rating-5-foreground: #2a0509;
+  }
 }
 
 @layer base {
