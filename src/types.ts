@@ -7,6 +7,16 @@ export interface NutrientValue {
   text?: string | null
 }
 
+export type NutrientLevelValue = 'low' | 'moderate' | 'high'
+
+export interface NutrientLevel {
+  id: string
+  label: string
+  level: NutrientLevelValue
+  value: number | null
+  unit: string
+}
+
 export interface ProductDetails {
   barcode: string
   name: string | null
@@ -23,6 +33,7 @@ export interface ProductDetails {
   labels: string | null
   ingredientsAnalysis: string | null
   nutrients: NutrientValue[]
+  nutrientLevels: NutrientLevel[]
   isProductFound: boolean
 }
 

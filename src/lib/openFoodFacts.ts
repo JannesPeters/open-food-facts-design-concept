@@ -1,4 +1,6 @@
 import type {
+  NutrientLevel,
+  NutrientLevelValue,
   NutrientValue,
   ProductDetails,
   ProductSearchResponse,
@@ -13,6 +15,7 @@ const requestedFields = [
   'brands',
   'image_url',
   'nutriments',
+  'nutrient_levels',
   'nutriscore_grade',
   'ecoscore_grade',
   'nova_group',
@@ -68,6 +71,7 @@ interface OpenFoodFactsProduct {
   brands?: string
   image_url?: string
   nutriments?: Record<string, number | string | undefined>
+  nutrient_levels?: Record<string, string | undefined>
   nutriscore_grade?: string
   ecoscore_grade?: string
   nova_group?: number | string
@@ -137,6 +141,54 @@ const buildNutrients = (
   })),
 ]
 
+const nutrientLevelDefinitions: Array<{
+  id: string
+  label: string
+  nutrimentKey: string
+  unit: string
+}> = [
+  { id: 'fat', label: 'Fat', nutrimentKey: 'fat_100g', unit: 'g' },
+  {
+    id: 'saturated-fat',
+    label: 'Saturated fat',
+    nutrimentKey: 'saturated-fat_100g',
+    unit: 'g',
+  },
+  { id: 'sugars', label: 'Sugars', nutrimentKey: 'sugars_100g', unit: 'g' },
+  { id: 'salt', label: 'Salt', nutrimentKey: 'salt_100g', unit: 'g' },
+]
+
+const isNutrientLevelValue = (
+  value: string | undefined,
+): value is NutrientLevelValue =>
+  value === 'low' || value === 'moderate' || value === 'high'
+
+const buildNutrientLevels = (
+  levels: Record<string, string | undefined> | undefined,
+  nutriments: Record<string, number | string | undefined> | undefined,
+): NutrientLevel[] => {
+  if (!levels) {
+    return []
+  }
+
+  return nutrientLevelDefinitions.flatMap((definition) => {
+    const level = levels[definition.id]
+    if (!isNutrientLevelValue(level)) {
+      return []
+    }
+
+    return [
+      {
+        id: definition.id,
+        label: definition.label,
+        level,
+        value: nutriments ? readNumber(nutriments[definition.nutrimentKey]) : null,
+        unit: definition.unit,
+      },
+    ]
+  })
+}
+
 const cleanText = (value: string | undefined): string | null => {
   const trimmed = value?.trim()
   return trimmed ? trimmed : null
@@ -200,6 +252,7 @@ const buildMissingProductDetails = (barcode: string): ProductDetails => ({
   labels: null,
   ingredientsAnalysis: null,
   nutrients: buildNutrients(undefined),
+  nutrientLevels: [],
   isProductFound: false,
 })
 
@@ -226,6 +279,10 @@ const mapProductDetails = (
     labels: cleanTagList(product?.labels),
     ingredientsAnalysis: cleanAnalysisTags(product?.ingredients_analysis_tags),
     nutrients: buildNutrients(product?.nutriments),
+    nutrientLevels: buildNutrientLevels(
+      product?.nutrient_levels,
+      product?.nutriments,
+    ),
     isProductFound: data.status === 1,
   }
 }
