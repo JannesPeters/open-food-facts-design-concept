@@ -56,54 +56,59 @@ function ResultCard({ product }: { product: ProductSearchResult }) {
   const showImage = product.imageUrl && !imageFailed
 
   return (
-    <li className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card text-card-foreground transition-colors hover:border-primary">
-      <div className="flex aspect-square items-center justify-center overflow-hidden bg-muted">
-        {showImage ? (
-          <img
-            src={product.imageUrl ?? ''}
-            alt={product.name ?? 'Product'}
-            loading="lazy"
-            onError={() => setImageFailed(true)}
-            className="size-full object-contain p-3 transition-transform duration-200 group-hover:scale-105"
-          />
-        ) : (
-          <ImageOff className="size-8 text-muted-foreground" />
-        )}
-      </div>
-
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <div className="space-y-1">
-          <h3 className="line-clamp-2 text-sm font-semibold text-foreground">
-            {product.name ?? 'Unnamed product'}
-          </h3>
-          {product.brands && (
-            <p className="line-clamp-1 text-xs text-muted-foreground">
-              {product.brands}
-            </p>
+    <li className="group flex overflow-hidden rounded-xl border border-border bg-card text-card-foreground transition-colors hover:border-primary focus-within:border-primary">
+      <Link
+        to={`/product/${product.barcode}`}
+        className="flex flex-1 flex-col overflow-hidden rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <div className="flex aspect-square items-center justify-center overflow-hidden bg-muted">
+          {showImage ? (
+            <img
+              src={product.imageUrl ?? ''}
+              alt={product.name ?? 'Product'}
+              loading="lazy"
+              onError={() => setImageFailed(true)}
+              className="size-full object-contain p-3 transition-transform duration-200 group-hover:scale-105"
+            />
+          ) : (
+            <ImageOff className="size-8 text-muted-foreground" />
           )}
         </div>
 
-        {product.quantity && (
-          <p className="text-xs text-muted-foreground">{product.quantity}</p>
-        )}
+        <div className="flex flex-1 flex-col gap-2 p-4">
+          <div className="space-y-1">
+            <h3 className="line-clamp-2 text-sm font-semibold text-foreground">
+              {product.name ?? 'Unnamed product'}
+            </h3>
+            {product.brands && (
+              <p className="line-clamp-1 text-xs text-muted-foreground">
+                {product.brands}
+              </p>
+            )}
+          </div>
 
-        <div className="mt-auto flex flex-wrap gap-1.5 pt-1">
-          {product.nutriScore && (
-            <ScoreBadge
-              label="Nutri"
-              value={product.nutriScore}
-              rating={nutriScoreRating[product.nutriScore] ?? 3}
-            />
+          {product.quantity && (
+            <p className="text-xs text-muted-foreground">{product.quantity}</p>
           )}
-          {product.novaGroup !== null && (
-            <ScoreBadge
-              label="NOVA"
-              value={String(product.novaGroup)}
-              rating={novaRating[product.novaGroup] ?? 3}
-            />
-          )}
+
+          <div className="mt-auto flex flex-wrap gap-1.5 pt-1">
+            {product.nutriScore && (
+              <ScoreBadge
+                label="Nutri"
+                value={product.nutriScore}
+                rating={nutriScoreRating[product.nutriScore] ?? 3}
+              />
+            )}
+            {product.novaGroup !== null && (
+              <ScoreBadge
+                label="NOVA"
+                value={String(product.novaGroup)}
+                rating={novaRating[product.novaGroup] ?? 3}
+              />
+            )}
+          </div>
         </div>
-      </div>
+      </Link>
     </li>
   )
 }
@@ -241,7 +246,7 @@ function SearchPage() {
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                type="search"
+                type="text"
                 value={inputValue}
                 onChange={(event) => setInputValue(event.target.value)}
                 placeholder="Search for a product…"
