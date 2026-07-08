@@ -6,12 +6,12 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import SiteHeader from '@/components/SiteHeader'
+import { sanitizeBarcode } from '@/lib/scores'
 
 const cameraSupported =
   typeof navigator !== 'undefined' &&
   typeof navigator.mediaDevices?.getUserMedia === 'function'
-
-const sanitizeBarcode = (value: string) => value.replace(/[^\d]/g, '')
 
 const initialScannerMessage = cameraSupported
   ? 'Point your camera at a barcode to look up a product.'
@@ -155,25 +155,7 @@ function ScannerPage() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="border-b border-border">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-4">
-          <Link to="/" className="flex items-center gap-3">
-            <img
-              src="/off-logo.svg"
-              alt="Open Food Facts"
-              className="h-9 w-auto dark:hidden"
-            />
-            <img
-              src="/off-logo-dark.svg"
-              alt="Open Food Facts"
-              className="hidden h-9 w-auto dark:block"
-            />
-            <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
-              Concept
-            </span>
-          </Link>
-        </div>
-      </header>
+      <SiteHeader trailing={null} />
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">
         <div className="mb-8 space-y-2">

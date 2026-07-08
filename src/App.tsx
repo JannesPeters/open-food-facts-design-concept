@@ -1,18 +1,22 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
-import HomePage from './HomePage'
-import ProductPage from './ProductPage'
-import ScannerPage from './ScannerPage'
-import SearchPage from './SearchPage'
+
+const HomePage = lazy(() => import('./HomePage'))
+const ProductPage = lazy(() => import('./ProductPage'))
+const ScannerPage = lazy(() => import('./ScannerPage'))
+const SearchPage = lazy(() => import('./SearchPage'))
 
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/search" element={<SearchPage />} />
-        <Route path="/scanner" element={<ScannerPage />} />
-        <Route path="/product/:barcode" element={<ProductPage />} />
-      </Routes>
+      <Suspense fallback={<div className="min-h-dvh bg-background" />}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/search" element={<SearchPage />} />
+          <Route path="/scanner" element={<ScannerPage />} />
+          <Route path="/product/:barcode" element={<ProductPage />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }

@@ -14,6 +14,7 @@ export interface ProductDetails {
   brands: string | null
   imageUrl: string | null
   nutriScore: string | null
+  ecoScore: string | null
   novaGroup: number | null
   quantity: string | null
   servingSize: string | null
@@ -31,6 +32,7 @@ export interface ProductSearchResult {
   brands: string | null
   imageUrl: string | null
   nutriScore: string | null
+  ecoScore: string | null
   novaGroup: number | null
   quantity: string | null
 }

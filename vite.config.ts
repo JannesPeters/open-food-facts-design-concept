@@ -11,13 +11,13 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      includeAssets: ['favicon-off.svg', 'favicon-off.png', 'apple-touch-icon-off.png'],
       manifest: {
         name: 'Open Food Facts — Redesign Concept',
         short_name: 'Open Food Facts',
         description:
           'Search, browse, and scan food products to see ingredients, nutrition, and Nutri-Score, NOVA, and Eco-Score at a glance.',
-        theme_color: '#2563eb',
+        theme_color: '#ff8c14',
         background_color: '#ffffff',
         display: 'standalone',
         start_url: '/',
@@ -49,6 +49,22 @@ export default defineConfig({
             handler: 'NetworkFirst',
             options: {
               cacheName: 'openfoodfacts-api',
+              networkTimeoutSeconds: 5,
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24,
+              },
+            },
+          },
+          {
+            // Full-text search uses the legacy CGI endpoint (/cgi/search.pl).
+            urlPattern: /^https:\/\/world\.openfoodfacts\.org\/cgi\/.*$/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'openfoodfacts-search',
               networkTimeoutSeconds: 5,
               cacheableResponse: {
                 statuses: [0, 200],

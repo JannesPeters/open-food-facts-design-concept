@@ -14,6 +14,7 @@ const requestedFields = [
   'image_url',
   'nutriments',
   'nutriscore_grade',
+  'ecoscore_grade',
   'nova_group',
   'quantity',
   'serving_size',
@@ -68,6 +69,7 @@ interface OpenFoodFactsProduct {
   image_url?: string
   nutriments?: Record<string, number | string | undefined>
   nutriscore_grade?: string
+  ecoscore_grade?: string
   nova_group?: number | string
   quantity?: string
   serving_size?: string
@@ -172,6 +174,11 @@ const normalizeNutriScore = (value: string | undefined): string | null => {
   return grade && /^[A-E]$/u.test(grade) ? grade : null
 }
 
+const normalizeEcoScore = (value: string | undefined): string | null => {
+  const grade = value?.trim().toUpperCase()
+  return grade && /^[A-E]$/u.test(grade) ? grade : null
+}
+
 const normalizeNovaGroup = (value: number | string | undefined): number | null => {
   const group = readNumber(value)
   return group !== null && group >= 1 && group <= 4 ? group : null
@@ -184,6 +191,7 @@ const buildMissingProductDetails = (barcode: string): ProductDetails => ({
   brands: null,
   imageUrl: null,
   nutriScore: null,
+  ecoScore: null,
   novaGroup: null,
   quantity: null,
   servingSize: null,
@@ -209,6 +217,7 @@ const mapProductDetails = (
     brands: product?.brands?.trim() || null,
     imageUrl: product?.image_url?.trim() || null,
     nutriScore: normalizeNutriScore(product?.nutriscore_grade),
+    ecoScore: normalizeEcoScore(product?.ecoscore_grade),
     novaGroup: normalizeNovaGroup(product?.nova_group),
     quantity: cleanText(product?.quantity),
     servingSize: cleanText(product?.serving_size),
@@ -394,6 +403,7 @@ const searchRequestedFields = [
   'image_url',
   'image_front_small_url',
   'nutriscore_grade',
+  'ecoscore_grade',
   'nova_group',
   'quantity',
 ].join(',')
@@ -461,6 +471,7 @@ const mapSearchProduct = (
   imageUrl:
     product.image_front_small_url?.trim() || product.image_url?.trim() || null,
   nutriScore: normalizeNutriScore(product.nutriscore_grade),
+  ecoScore: normalizeEcoScore(product.ecoscore_grade),
   novaGroup: normalizeNovaGroup(product.nova_group),
   quantity: cleanText(product.quantity),
 })

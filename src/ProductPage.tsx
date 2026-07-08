@@ -2,58 +2,18 @@ import { ArrowLeft, ImageOff, PackageSearch, ScanLine } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import ScoreBadge from '@/components/ScoreBadge'
+import SiteHeader from '@/components/SiteHeader'
 import { cn } from '@/lib/utils'
 import { fetchProductDetails } from '@/lib/openFoodFacts'
+import {
+  ecoScoreRating,
+  novaRating,
+  nutriScoreRating,
+  sanitizeBarcode,
+  splitTags,
+} from '@/lib/scores'
 import type { ProductDetails } from '@/types'
-
-const ratingClasses: Record<number, string> = {
-  1: 'bg-rating-1 text-rating-1-foreground',
-  2: 'bg-rating-2 text-rating-2-foreground',
-  3: 'bg-rating-3 text-rating-3-foreground',
-  4: 'bg-rating-4 text-rating-4-foreground',
-  5: 'bg-rating-5 text-rating-5-foreground',
-}
-
-const nutriScoreRating: Record<string, number> = {
-  A: 1,
-  B: 2,
-  C: 3,
-  D: 4,
-  E: 5,
-}
-
-const novaRating: Record<number, number> = {
-  1: 1,
-  2: 3,
-  3: 4,
-  4: 5,
-}
-
-const sanitizeBarcode = (value: string) => value.replace(/[^\d]/g, '')
-
-const splitTags = (value: string) =>
-  value
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0)
-
-function ScoreBadge({ label, value, rating }: {
-  label: string
-  value: string
-  rating: number
-}) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold',
-        ratingClasses[rating] ?? 'bg-secondary text-secondary-foreground',
-      )}
-    >
-      <span className="opacity-80">{label}</span>
-      <span>{value}</span>
-    </span>
-  )
-}
 
 function TagGroup({ label, values }: { label: string; values: string[] }) {
   if (values.length === 0) {
@@ -76,36 +36,6 @@ function TagGroup({ label, values }: { label: string; values: string[] }) {
         ))}
       </div>
     </div>
-  )
-}
-
-function SiteHeader() {
-  return (
-    <header className="border-b border-border">
-      <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-4">
-        <Link to="/" className="flex items-center gap-3">
-          <img
-            src="/off-logo.svg"
-            alt="Open Food Facts"
-            className="h-9 w-auto dark:hidden"
-          />
-          <img
-            src="/off-logo-dark.svg"
-            alt="Open Food Facts"
-            className="hidden h-9 w-auto dark:block"
-          />
-          <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
-            Concept
-          </span>
-        </Link>
-        <Button asChild variant="outline" size="sm">
-          <Link to="/scanner">
-            <ScanLine className="size-4" />
-            Scanner
-          </Link>
-        </Button>
-      </div>
-    </header>
   )
 }
 
@@ -271,13 +201,22 @@ function ProductPage() {
                   )}
                 </div>
 
-                {(product.nutriScore || product.novaGroup !== null) && (
+                {(product.nutriScore ||
+                  product.ecoScore ||
+                  product.novaGroup !== null) && (
                   <div className="flex flex-wrap gap-2">
                     {product.nutriScore && (
                       <ScoreBadge
                         label="Nutri-Score"
                         value={product.nutriScore}
                         rating={nutriScoreRating[product.nutriScore] ?? 3}
+                      />
+                    )}
+                    {product.ecoScore && (
+                      <ScoreBadge
+                        label="Eco-Score"
+                        value={product.ecoScore}
+                        rating={ecoScoreRating[product.ecoScore] ?? 3}
                       />
                     )}
                     {product.novaGroup !== null && (
