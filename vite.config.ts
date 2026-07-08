@@ -13,10 +13,10 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Food Scanner',
-        short_name: 'Food Scanner',
+        name: 'Open Food Facts — Redesign Concept',
+        short_name: 'Open Food Facts',
         description:
-          'Scan food barcodes, save local prices, and keep your grocery history on your phone.',
+          'Search, browse, and scan food products to see ingredients, nutrition, and Nutri-Score, NOVA, and Eco-Score at a glance.',
         theme_color: '#2563eb',
         background_color: '#ffffff',
         display: 'standalone',
