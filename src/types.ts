@@ -25,6 +25,24 @@ export interface ProductDetails {
   isProductFound: boolean
 }
 
+export interface ProductSearchResult {
+  barcode: string
+  name: string | null
+  brands: string | null
+  imageUrl: string | null
+  nutriScore: string | null
+  novaGroup: number | null
+  quantity: string | null
+}
+
+export interface ProductSearchResponse {
+  results: ProductSearchResult[]
+  count: number
+  page: number
+  pageSize: number
+  pageCount: number
+}
+
 export interface SavedProductRecord extends ProductDetails {
   id: string
   price: number | null

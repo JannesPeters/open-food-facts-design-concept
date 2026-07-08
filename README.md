@@ -83,6 +83,17 @@ No GitHub Actions workflow or Vercel secrets/variables are required in this repo
 
 Product data comes from [Open Food Facts](https://world.openfoodfacts.org/), a collaborative, open database made available under the Open Database License. This project is an independent design concept and is not affiliated with or endorsed by Open Food Facts.
 
+### Working with the Open Food Facts API
+
+If you build features on top of the OFF API, please read and follow their official guidelines first:
+
+- [API documentation](https://openfoodfacts.github.io/openfoodfacts-server/api/) (read it fully before integrating)
+- [Rate limits & how to best use the API](https://openfoodfacts.github.io/openfoodfacts-server/api/#rate-limits)
+- [API reference — v2](https://openfoodfacts.github.io/openfoodfacts-server/api/ref-v2/) · [v3](https://openfoodfacts.github.io/openfoodfacts-server/api/ref-v3/)
+- [Terms of use and reuse](https://world.openfoodfacts.org/terms-of-use) · [data page / bulk exports](https://world.openfoodfacts.org/data)
+
+In practice this means: respect OFF's rate limits (≈15 req/min/IP for product reads, ≈10 req/min/IP for search, plus a global cap that returns HTTP 503 under load), never call the API on every keystroke, request only the `fields` you need, and identify the app with a descriptive `User-Agent`. All API access is centralized in `src/lib/openFoodFacts.ts`, which adds retry-with-backoff and a stale cache so the app stays usable while OFF is throttling — reuse those helpers for new endpoints instead of calling `fetch` directly. For contributor guidance, see [`AGENTS.md`](AGENTS.md).
+
 ## Roadmap ideas
 
 - Side-by-side product comparison of nutrition and scores
