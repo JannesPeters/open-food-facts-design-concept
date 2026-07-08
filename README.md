@@ -1,26 +1,29 @@
-# food-scanner-app
+# open-food-facts-redesign
 
-Mobile-first MVP for scanning grocery product barcodes, fetching product details from Open Food Facts, adding a local price, saving the result in the browser, and exporting saved items as CSV.
+A modern, consumer-facing redesign of the Open Food Facts website. The goal is a fast, clean product-discovery experience: search and browse the open food database, view rich product pages with health and environmental scoring, and scan barcodes right from the site to jump straight to a product.
 
-The app now also ships as an installable Progressive Web App, so it can be added to a phone home screen and launched like a native app.
+This project is a design and functionality concept built on top of the public Open Food Facts data. It reimagines the front-end experience while keeping the open, transparent spirit of the underlying database.
 
-## MVP features
+## Vision
 
-- Camera-based barcode scanning in the browser
-- Manual barcode entry fallback
-- Open Food Facts lookup for product name, ingredients, image, key nutrients, Nutri-Score, NOVA group, quantity, serving size, allergens, categories, and labels
-- Editable price before saving
-- IndexedDB-backed local persistence across reloads and browser restarts on the same device
-- Saved history view
-- CSV export for all locally saved records
-- Graceful handling when Open Food Facts has missing or no product data
+Open Food Facts holds one of the largest open databases of food products in the world, but the experience of exploring it can feel dense and dated. This redesign focuses on the everyday shopper: someone who wants to quickly find a product, understand how healthy and sustainable it is, and compare options with confidence.
+
+## Core features
+
+- **Search & browse** the Open Food Facts catalog by name, brand, category, and label
+- **Product pages** with a clear, scannable layout for ingredients, nutrition, quantity, serving size, allergens, categories, and labels
+- **Scoring at a glance** — Nutri-Score, NOVA group, and Eco-Score presented visually so quality and impact are obvious
+- **In-site barcode scanning** — use the device camera to scan a product barcode and open its page directly, with manual barcode entry as a fallback
+- **Fresh, accessible design** — a modern visual language that is fast, readable, and mobile-first
+- **Graceful handling** of missing or incomplete product data
 
 ## Stack
 
 - React 19 + TypeScript
 - Vite for local development and production builds
-- `@zxing/browser` for barcode scanning
-- `idb` for IndexedDB persistence
+- Tailwind CSS for styling
+- `@zxing/browser` for in-site barcode scanning
+- Open Food Facts public API as the data source
 
 ## Getting started
 
@@ -29,14 +32,7 @@ The app now also ships as an installable Progressive Web App, so it can be added
 ./scripts/run.sh
 ```
 
-Open the local URL in a mobile browser or a desktop browser that supports camera access. Camera permissions work on `localhost` during development.
-
-## Installing on a phone
-
-- **iPhone / iPad (Safari):** open the app, tap **Share**, then **Add to Home Screen**
-- **Android (Chrome/Edge):** open the app and use **Install app** from the browser menu
-
-Once installed, the app opens in standalone mode and keeps previously saved history available offline. Live barcode lookups still need a network connection.
+Open the local URL in a desktop or mobile browser. The barcode scanner needs camera access, which works on `localhost` during development.
 
 ## Available scripts
 
@@ -50,17 +46,20 @@ Once installed, the app opens in standalone mode and keeps previously saved hist
 
 ## Production deployment
 
-Pushes to `main` deploy to Vercel through `.github/workflows/vercel-production.yml`.
+Deployment is handled by Vercel's native Git integration. The repository is connected to the Vercel project `open-food-facts-design-concept` (named to match this repo), served at [`open-food-facts-design-concept.vercel.app`](https://open-food-facts-design-concept.vercel.app).
 
-Set these repository settings before the first run:
+- Pushes to `main` trigger a production deployment automatically.
+- Pull requests get their own preview deployments.
 
-- Repository secret: `VERCEL_TOKEN`
-- Repository variables: `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`
+No GitHub Actions workflow or Vercel secrets/variables are required in this repo — Vercel builds and deploys directly from the connected Git repository.
 
-The workflow targets the existing Vercel project `supbase-fsa`.
+## Data & attribution
 
-## Notes for the next iteration
+Product data comes from [Open Food Facts](https://world.openfoodfacts.org/), a collaborative, open database made available under the Open Database License. This project is an independent design concept and is not affiliated with or endorsed by Open Food Facts.
 
-- Add item editing and deletion in saved history
-- Support multiple export formats and richer nutrient views
-- Expand offline support beyond the app shell and cached product assets
+## Roadmap ideas
+
+- Side-by-side product comparison of nutrition and scores
+- Personalized dietary filters (allergens, vegan, keto, and more)
+- Saved lists and favorites
+- Deeper browse experiences by category, label, and region

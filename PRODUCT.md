@@ -6,28 +6,28 @@ product
 
 ## Users
 
-People tracking grocery prices and product details while shopping or reviewing saved items locally. They need a fast capture flow that works from a camera scan or manual barcode entry, then lets them verify shop, price, ingredients, nutrition, and Open Food Facts corrections without visual friction.
+Everyday shoppers and health-conscious consumers who want to understand what is in their food. They come to look up a product — by searching, browsing, or scanning a barcode — and expect to quickly grasp its ingredients, nutrition, and how healthy and sustainable it is. Some are comparing options on a shelf; others are reviewing a product at home. They value clarity, trust, and speed over dense tables and jargon.
 
 ## Product Purpose
 
-This app scans food barcodes, looks up product data, stores local price records, and exports saved items to CSV. Success means users can capture a product, correct bad external data, save a clean local record, and move to the next item with confidence.
+A modern, consumer-facing redesign of the Open Food Facts website. Users can search and browse the open food database, open rich product pages, and scan barcodes directly from the site to jump to a product. Success means a shopper can find a product in seconds, immediately understand its Nutri-Score, NOVA group, and Eco-Score, read a clean breakdown of ingredients and nutrition, and make a confident choice.
 
 ## Brand Personality
 
-Calm, direct, and utilitarian. The interface should feel like a dependable pocket tool: clear controls, readable information, and minimal decoration.
+Open, trustworthy, and modern. The interface should feel like a fast, friendly reference: clear typography, confident use of color for scoring, and a calm layout that makes complex food data approachable. It keeps the transparent, community-rooted spirit of Open Food Facts while feeling contemporary and effortless.
 
 ## Anti-references
 
-Avoid floating tile or card-heavy layouts, decorative elevation, glassy surfaces, and over-styled SaaS dashboard patterns. The app should not feel like a generated landing page or a stack of disconnected panels.
+Avoid dense data tables without hierarchy, dated or cluttered layouts, and jargon-heavy presentation. Do not bury scores in fine print or overwhelm users with every field at once. Avoid over-styled SaaS dashboard patterns and decorative noise that competes with the product information.
 
 ## Design Principles
 
-1. Keep the task path obvious from scan to save.
-2. Use flat structure, separators, and spacing instead of decorative elevation.
-3. Make data correction feel safe and reversible.
-4. Reserve strong color for actions and meaningful states.
-5. Prefer familiar product controls over novel visual flourishes.
+1. Make health and sustainability scores obvious at a glance.
+2. Guide users quickly from search, browse, or scan to a product page.
+3. Present dense food data with clear hierarchy, spacing, and progressive disclosure.
+4. Reserve strong color for scoring, actions, and meaningful states.
+5. Design mobile-first so the experience works while shopping.
 
 ## Accessibility & Inclusion
 
-Target WCAG AA contrast for text and controls. Support keyboard-visible focus, readable form labels, reduced decorative motion, and layouts that remain usable on narrow mobile screens while shopping.
+Target WCAG AA contrast for text, controls, and score indicators. Never rely on color alone to communicate a score — pair it with labels and text. Support keyboard-visible focus, readable form labels, reduced decorative motion, and layouts that remain usable on narrow mobile screens.
