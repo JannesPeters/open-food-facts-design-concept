@@ -35,6 +35,18 @@ export const novaRating: Record<number, number> = {
   4: 5,
 }
 
+export const nutrientLevelRating: Record<string, number> = {
+  low: 1,
+  moderate: 3,
+  high: 5,
+}
+
+export const nutrientLevelLabel: Record<string, string> = {
+  low: 'Low',
+  moderate: 'Moderate',
+  high: 'High',
+}
+
 export const sanitizeBarcode = (value: string) => value.replace(/[^\d]/g, '')
 
 export const splitTags = (value: string) =>

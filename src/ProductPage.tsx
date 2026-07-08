@@ -9,11 +9,14 @@ import { fetchProductDetails } from '@/lib/openFoodFacts'
 import {
   ecoScoreRating,
   novaRating,
+  nutrientLevelLabel,
+  nutrientLevelRating,
   nutriScoreRating,
+  ratingClasses,
   sanitizeBarcode,
   splitTags,
 } from '@/lib/scores'
-import type { ProductDetails } from '@/types'
+import type { NutrientLevel, ProductDetails } from '@/types'
 
 function TagGroup({ label, values }: { label: string; values: string[] }) {
   if (values.length === 0) {
@@ -36,6 +39,56 @@ function TagGroup({ label, values }: { label: string; values: string[] }) {
         ))}
       </div>
     </div>
+  )
+}
+
+function NutrientLevels({ levels }: { levels: NutrientLevel[] }) {
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold text-foreground">Nutrient levels</h2>
+      <p className="text-sm text-muted-foreground">
+        As sold, per 100&nbsp;g. Based on Open Food Facts thresholds for fat,
+        saturated fat, sugars, and salt.
+      </p>
+      <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+        {levels.map((level) => {
+          const rating = nutrientLevelRating[level.level] ?? 3
+          return (
+            <li
+              key={level.id}
+              className="flex items-center justify-between gap-4 px-4 py-3"
+            >
+              <div className="flex items-center gap-2.5">
+                <span
+                  className={cn(
+                    'size-2.5 shrink-0 rounded-full',
+                    ratingClasses[rating] ?? 'bg-secondary',
+                  )}
+                  aria-hidden
+                />
+                <span className="text-sm font-medium text-foreground">
+                  {level.label}
+                </span>
+                {level.value !== null && (
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {level.value}
+                    {level.unit}
+                  </span>
+                )}
+              </div>
+              <span
+                className={cn(
+                  'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                  ratingClasses[rating] ?? 'bg-secondary text-secondary-foreground',
+                )}
+              >
+                {nutrientLevelLabel[level.level] ?? level.level}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 
@@ -257,12 +310,6 @@ function ProductPage() {
                 </dl>
 
                 <div className="space-y-3">
-                  {product.categories && (
-                    <TagGroup
-                      label="Categories"
-                      values={splitTags(product.categories)}
-                    />
-                  )}
                   {product.labels && (
                     <TagGroup label="Labels" values={splitTags(product.labels)} />
                   )}
@@ -281,6 +328,10 @@ function ProductPage() {
                 </div>
               </div>
             </div>
+
+            {product.nutrientLevels.length > 0 && (
+              <NutrientLevels levels={product.nutrientLevels} />
+            )}
 
             <div className="grid gap-8 md:grid-cols-2">
               <section className="space-y-3">
@@ -345,6 +396,13 @@ function ProductPage() {
                 )}
               </section>
             </div>
+
+            {product.categories && (
+              <TagGroup
+                label="Categories"
+                values={splitTags(product.categories)}
+              />
+            )}
           </article>
         )}
       </main>
