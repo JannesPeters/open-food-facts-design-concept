@@ -25,6 +25,7 @@ const requestedFields = [
 
 const openFoodFactsOrigin = 'https://world.openfoodfacts.org'
 const openFoodFactsDevProxyPrefix = '/__openfoodfacts'
+const openFoodFactsDevProxyCgiPrefix = '/__off-cgi'
 
 const getProductLookupPath = (barcode: string) => {
   const pathname = `/api/v2/product/${encodeURIComponent(barcode)}.json`
@@ -300,7 +301,7 @@ interface CacheEntry<T> {
   savedAt: number
 }
 
-const cachePrefix = 'off-cache:'
+const cachePrefix = 'off-cache:v2:'
 const cacheFreshTtlMs = 1000 * 60 * 10
 const memoryCache = new Map<string, CacheEntry<unknown>>()
 
@@ -397,13 +398,18 @@ const searchRequestedFields = [
   'quantity',
 ].join(',')
 
+// Full-text product search lives on the legacy CGI endpoint. The v2 /search
+// endpoint only filters by structured tags and silently ignores `search_terms`
+// (it returns the entire database), so it must not be used for a search box.
 const buildSearchQuery = (searchTerms: string, page: number, pageSize: number) =>
   [
     `search_terms=${encodeURIComponent(searchTerms)}`,
+    'search_simple=1',
+    'action=process',
+    'json=1',
     `fields=${encodeURIComponent(searchRequestedFields)}`,
     `page=${encodeURIComponent(String(page))}`,
     `page_size=${encodeURIComponent(String(pageSize))}`,
-    'sort_by=popularity_key',
   ].join('&')
 
 const getDevProxySearchUrl = (
@@ -411,14 +417,14 @@ const getDevProxySearchUrl = (
   page: number,
   pageSize: number,
 ) =>
-  `${openFoodFactsDevProxyPrefix}/search?${buildSearchQuery(searchTerms, page, pageSize)}`
+  `${openFoodFactsDevProxyCgiPrefix}/search.pl?${buildSearchQuery(searchTerms, page, pageSize)}`
 
 const getDirectSearchUrl = (
   searchTerms: string,
   page: number,
   pageSize: number,
 ) =>
-  `${openFoodFactsOrigin}/api/v2/search?${buildSearchQuery(searchTerms, page, pageSize)}`
+  `${openFoodFactsOrigin}/cgi/search.pl?${buildSearchQuery(searchTerms, page, pageSize)}`
 
 const getSearchCandidates = (
   searchTerms: string,

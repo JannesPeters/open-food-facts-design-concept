@@ -96,6 +96,18 @@ export default defineConfig({
         },
         rewrite: (path) => path.replace(/^\/__openfoodfacts/, '/api/v2'),
       },
+      // Full-text search uses the legacy CGI endpoint (/cgi/search.pl), which
+      // is not under /api/v2, so it needs its own proxy route.
+      '/__off-cgi': {
+        target: 'https://world.openfoodfacts.org',
+        changeOrigin: true,
+        secure: true,
+        headers: {
+          'User-Agent':
+            'OpenFoodFactsDesignConcept/0.0 (local dev; https://github.com/JannesPeters/open-food-facts-design-concept)',
+        },
+        rewrite: (path) => path.replace(/^\/__off-cgi/, '/cgi'),
+      },
     },
   },
 })
