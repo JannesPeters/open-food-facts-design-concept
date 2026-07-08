@@ -126,8 +126,8 @@ function ProductPage() {
         </div>
 
         {status === 'loading' && (
-          <div className="grid gap-8 md:grid-cols-[minmax(0,320px)_1fr]">
-            <div className="aspect-square animate-pulse rounded-xl bg-muted" />
+          <div className="grid gap-8 md:grid-cols-[minmax(0,180px)_1fr]">
+            <div className="aspect-square w-40 animate-pulse rounded-xl bg-muted md:w-full" />
             <div className="space-y-4">
               <div className="h-8 w-2/3 animate-pulse rounded bg-muted" />
               <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
@@ -174,22 +174,23 @@ function ProductPage() {
 
         {status === 'success' && product && product.isProductFound && (
           <article className="space-y-10">
-            <div className="grid gap-8 md:grid-cols-[minmax(0,320px)_1fr]">
-              <div className="flex aspect-square items-center justify-center overflow-hidden rounded-xl border border-border bg-muted">
-                {showImage ? (
-                  <img
-                    src={product.imageUrl ?? ''}
-                    alt={product.name ?? 'Product'}
-                    onError={() => setImageFailed(true)}
-                    className="size-full object-contain p-4"
-                  />
-                ) : (
-                  <ImageOff className="size-10 text-muted-foreground" />
-                )}
-              </div>
+            <div className="grid gap-4 md:grid-cols-[minmax(0,180px)_1fr] md:gap-8">
+              <div className="flex gap-4 md:contents">
+                <div className="flex aspect-square w-32 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted sm:w-40 md:w-full">
+                  {showImage ? (
+                    <img
+                      src={product.imageUrl ?? ''}
+                      alt={product.name ?? 'Product'}
+                      onError={() => setImageFailed(true)}
+                      className="size-full object-contain p-4"
+                    />
+                  ) : (
+                    <ImageOff className="size-10 text-muted-foreground" />
+                  )}
+                </div>
 
-              <div className="space-y-4">
-                <div className="space-y-1">
+                <div className="min-w-0 flex-1 space-y-4">
+                  <div className="space-y-1">
                   <p className="font-mono text-xs text-muted-foreground">
                     {product.barcode}
                   </p>
@@ -228,7 +229,10 @@ function ProductPage() {
                     )}
                   </div>
                 )}
+                </div>
+              </div>
 
+              <div className="space-y-4 md:col-start-2">
                 <dl className="grid grid-cols-2 gap-4 text-sm">
                   {product.quantity && (
                     <div>
