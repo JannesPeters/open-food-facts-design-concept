@@ -42,11 +42,3 @@ export interface ProductSearchResponse {
   pageSize: number
   pageCount: number
 }
-
-export interface SavedProductRecord extends ProductDetails {
-  id: string
-  price: number | null
-  savedAt: string
-  shop: string | null
-  offDataFaulty: boolean
-}
