@@ -10,9 +10,31 @@ A modern, consumer-facing redesign of the Open Food Facts website. See `README.m
 
 - React 19 + TypeScript
 - Vite for dev and production builds
-- Tailwind CSS for styling
+- Tailwind CSS v4 for styling
+- **shadcn/ui** as the design system (see below)
 - `@zxing/browser` for in-site barcode scanning
 - Open Food Facts public API as the data source
+
+## Design system
+
+The UI uses **shadcn/ui** — copy-in components, not an installed library. Config is in `components.json` (`new-york` style, non-RSC, TSX, base color `slate`, CSS variables).
+
+- UI components live in `src/components/ui/` (button, card, input, textarea, select, separator, badge, label). Add new ones via the shadcn CLI or by matching the existing pattern — do not hand-roll ad-hoc equivalents.
+- Built on **Radix UI** primitives (`@radix-ui/react-*`) for accessibility.
+- Styling tokens are Tailwind CSS v4 CSS variables defined in `src/index.css`; prefer these tokens over hard-coded colors.
+- Use the `cn()` helper (`@/lib/utils`, backed by `clsx` + `tailwind-merge`) for conditional classes and `class-variance-authority` for component variants.
+- Icons come from `lucide-react`; animations from `tailwindcss-animate`.
+- The `@/` alias maps to `src/`.
+
+### Color system (important)
+
+All colors are CSS variables in `src/index.css`, surfaced as semantic Tailwind utilities through `@theme inline`. **Never hard-code hex/rgb in components or CSS — always use the semantic tokens** so light/dark and future re-theming keep working.
+
+- **Brand** is the Open Food Facts logo **orange** (`--primary` and `--brand` are both `#ff8c14`). Buttons use dark-brown text (`--primary-foreground`), not white, so the fill can stay the true logo orange and still pass contrast. Neutrals are warm brown. Do not reintroduce the old blue/green.
+- **Semantic status** tokens: `success`, `warning`, `info`, `destructive` (each with `-foreground`, plus `-subtle`/`-strong` for tinted pills/badges — used by the legacy classes in `App.css`).
+- **Food scores use ONE shared rating scale**, not per-score palettes: `rating-1` (best) … `rating-5` (worst), each with a `-foreground`. Map Nutri-Score A–E, Eco-Score A–E, and NOVA 1–4 onto these — never invent separate greens/reds per score.
+- **Dark mode** works via `prefers-color-scheme` and an explicit `.dark`/`.light` class on `<html>` (a `@custom-variant dark` makes `dark:` utilities honor both). When adding styles, verify both themes; do not reintroduce literal colors that only look right in light mode.
+- OFF is inspiration only — its palette is scattered and has no dark mode. Keep this system coherent: extend it by adding tokens in `src/index.css` (light block, `.dark` block, the `prefers-color-scheme` block, and a `@theme inline` mapping), not by hard-coding values. `src/index.css` is the single source of truth for design tokens.
 
 ## Common commands
 
