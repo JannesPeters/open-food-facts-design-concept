@@ -1,4 +1,9 @@
-import type { NutrientValue, ProductDetails } from '../types'
+import type {
+  NutrientValue,
+  ProductDetails,
+  ProductSearchResponse,
+  ProductSearchResult,
+} from '../types'
 
 const requestedFields = [
   'code',
@@ -233,6 +238,122 @@ export async function fetchProductDetails(
 
   if (lastErrorStatus === 404) {
     return buildMissingProductDetails(barcode)
+  }
+
+  throw new Error(
+    lastErrorStatus
+      ? `Open Food Facts could not be reached right now (HTTP ${lastErrorStatus}). Please try again shortly.`
+      : lastError?.message
+        ? `Open Food Facts could not be reached right now (${lastError.message}). Please try again shortly.`
+      : 'Open Food Facts could not be reached right now. Please try again shortly.',
+  )
+}
+
+const searchRequestedFields = [
+  'code',
+  'product_name',
+  'generic_name',
+  'brands',
+  'image_url',
+  'image_front_small_url',
+  'nutriscore_grade',
+  'nova_group',
+  'quantity',
+].join(',')
+
+const buildSearchQuery = (searchTerms: string, page: number, pageSize: number) =>
+  [
+    `search_terms=${encodeURIComponent(searchTerms)}`,
+    `fields=${encodeURIComponent(searchRequestedFields)}`,
+    `page=${encodeURIComponent(String(page))}`,
+    `page_size=${encodeURIComponent(String(pageSize))}`,
+    'sort_by=popularity_key',
+  ].join('&')
+
+const getDevProxySearchUrl = (
+  searchTerms: string,
+  page: number,
+  pageSize: number,
+) =>
+  `${openFoodFactsDevProxyPrefix}/search?${buildSearchQuery(searchTerms, page, pageSize)}`
+
+const getDirectSearchUrl = (
+  searchTerms: string,
+  page: number,
+  pageSize: number,
+) =>
+  `${openFoodFactsOrigin}/api/v2/search?${buildSearchQuery(searchTerms, page, pageSize)}`
+
+const getSearchCandidates = (
+  searchTerms: string,
+  page: number,
+  pageSize: number,
+) =>
+  import.meta.env.DEV
+    ? [
+        getDevProxySearchUrl(searchTerms, page, pageSize),
+        getDirectSearchUrl(searchTerms, page, pageSize),
+      ]
+    : [getDirectSearchUrl(searchTerms, page, pageSize)]
+
+interface OpenFoodFactsSearchProduct extends OpenFoodFactsProduct {
+  code?: string
+  image_front_small_url?: string
+}
+
+interface OpenFoodFactsSearchResponse {
+  count?: number
+  page?: number
+  page_size?: number
+  page_count?: number
+  products?: OpenFoodFactsSearchProduct[]
+}
+
+const mapSearchProduct = (
+  product: OpenFoodFactsSearchProduct,
+): ProductSearchResult => ({
+  barcode: product.code?.trim() || '',
+  name:
+    product.product_name?.trim() || product.generic_name?.trim() || null,
+  brands: cleanTagList(product.brands),
+  imageUrl:
+    product.image_front_small_url?.trim() || product.image_url?.trim() || null,
+  nutriScore: normalizeNutriScore(product.nutriscore_grade),
+  novaGroup: normalizeNovaGroup(product.nova_group),
+  quantity: cleanText(product.quantity),
+})
+
+export async function searchProducts(
+  searchTerms: string,
+  page = 1,
+  pageSize = 24,
+): Promise<ProductSearchResponse> {
+  let lastErrorStatus: number | null = null
+  let lastError: Error | null = null
+
+  for (const url of getSearchCandidates(searchTerms, page, pageSize)) {
+    try {
+      const response = await fetch(url)
+
+      if (response.ok) {
+        const data = (await response.json()) as OpenFoodFactsSearchResponse
+        const products = Array.isArray(data.products) ? data.products : []
+
+        return {
+          results: products
+            .map(mapSearchProduct)
+            .filter((result) => result.barcode.length > 0),
+          count: readNumber(data.count) ?? 0,
+          page: readNumber(data.page) ?? page,
+          pageSize: readNumber(data.page_size) ?? pageSize,
+          pageCount: readNumber(data.page_count) ?? 0,
+        }
+      }
+
+      lastErrorStatus = response.status
+    } catch (error) {
+      lastError = error instanceof Error ? error : null
+    }
   }
 
   throw new Error(
