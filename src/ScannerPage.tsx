@@ -1,5 +1,12 @@
 import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser'
-import { BarcodeFormat, DecodeHintType, type Result } from '@zxing/library'
+import {
+  BarcodeFormat,
+  ChecksumException,
+  DecodeHintType,
+  FormatException,
+  NotFoundException,
+  type Result,
+} from '@zxing/library'
 import { ArrowLeft, ScanLine } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
@@ -82,12 +89,6 @@ const describeCameraError = (error: unknown): string => {
   }
 }
 
-const transientScannerErrorNames = new Set([
-  'NotFoundException',
-  'ChecksumException',
-  'FormatException',
-])
-
 // Remembers the user's explicitly chosen camera across navigations *and*
 // reloads. This is what fixes Firefox with multiple webcams: instead of the
 // vague `facingMode: 'environment'` hint (which Firefox resolves ambiguously
@@ -160,8 +161,16 @@ const resolvePreferredDeviceId = (
   return undefined
 }
 
+// ZXing throws these on every video frame that doesn't (yet) contain a
+// decodable barcode — they're normal "keep scanning" signals, not failures.
+// We match with `instanceof` rather than `error.name`: ZXing derives the name
+// from the constructor name (via ts-custom-error), which the production
+// minifier renames, so a name check passes in dev but silently fails in the
+// built app and kills the scanner on the first empty frame.
 const isTransientScannerError = (error: unknown) =>
-  error instanceof Error && transientScannerErrorNames.has(error.name)
+  error instanceof NotFoundException ||
+  error instanceof ChecksumException ||
+  error instanceof FormatException
 
 // Remembers, for this page load, that the user explicitly stopped the camera.
 // Module scope means the intent survives client-side navigation (Home ↔
