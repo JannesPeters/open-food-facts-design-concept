@@ -101,49 +101,108 @@ const novaSegments: ScoreSegment[] = [1, 2, 3, 4].map((value) => ({
   rating: novaRating[value] ?? 3,
 }))
 
-function ScoreBadges({
-  product,
-  className,
-}: {
-  product: ProductDetails
-  className?: string
-}) {
-  if (!product.nutriScore && !product.ecoScore && product.novaGroup === null) {
-    return null
-  }
+type ScoreItem = {
+  label: string
+  value: string
+  segments: ScoreSegment[]
+  activeIndex: number
+}
 
+function getScoreItems(product: ProductDetails): ScoreItem[] {
+  const items: ScoreItem[] = []
   const nutriGrade = product.nutriScore?.toUpperCase()
   const ecoGrade = product.ecoScore?.toUpperCase()
 
+  if (nutriGrade) {
+    items.push({
+      label: 'Nutri-Score',
+      value: nutriGrade,
+      segments: gradeSegments,
+      activeIndex: (nutriScoreRating[nutriGrade] ?? 3) - 1,
+    })
+  }
+
+  if (ecoGrade) {
+    items.push({
+      label: 'Eco-Score',
+      value: ecoGrade,
+      segments: gradeSegments,
+      activeIndex: (ecoScoreRating[ecoGrade] ?? 3) - 1,
+    })
+  }
+
+  if (product.novaGroup !== null) {
+    items.push({
+      label: 'Nova-Class',
+      value: String(product.novaGroup),
+      segments: novaSegments,
+      activeIndex: product.novaGroup - 1,
+    })
+  }
+
+  return items
+}
+
+function ScoreBadges({
+  product,
+  className,
+  mobile,
+}: {
+  product: ProductDetails
+  className?: string
+  mobile?: boolean
+}) {
+  const scoreItems = getScoreItems(product)
+
+  if (scoreItems.length === 0) {
+    return null
+  }
+
+  if (mobile) {
+    return (
+      <div
+        className={cn(
+          'overflow-hidden rounded-xl border border-border',
+          className,
+        )}
+      >
+        {scoreItems.map((score, index) => (
+          <div
+            key={score.label}
+            className={cn(
+              'flex items-center justify-between gap-4 px-4 py-2',
+              index > 0 && 'border-t border-border',
+            )}
+          >
+            <span className="text-sm font-medium text-foreground">
+              {score.label}
+            </span>
+            <div className="shrink-0">
+              <ScoreScale
+                label={score.label}
+                segments={score.segments}
+                activeIndex={score.activeIndex}
+                hideLabel
+                size="sm"
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div className={cn('space-y-4', className)}>
-      {nutriGrade && (
-        <div className="min-w-0">
+      {scoreItems.map((score) => (
+        <div key={score.label} className="min-w-0">
           <ScoreScale
-            label="Nutri-Score"
-            segments={gradeSegments}
-            activeIndex={(nutriScoreRating[nutriGrade] ?? 3) - 1}
+            label={score.label}
+            segments={score.segments}
+            activeIndex={score.activeIndex}
           />
         </div>
-      )}
-      {ecoGrade && (
-        <div className="min-w-0">
-          <ScoreScale
-            label="Eco-Score"
-            segments={gradeSegments}
-            activeIndex={(ecoScoreRating[ecoGrade] ?? 3) - 1}
-          />
-        </div>
-      )}
-      {product.novaGroup !== null && (
-        <div className="min-w-0">
-          <ScoreScale
-            label="NOVA"
-            segments={novaSegments}
-            activeIndex={product.novaGroup - 1}
-          />
-        </div>
-      )}
+      ))}
     </div>
   )
 }
@@ -406,10 +465,7 @@ function ProductPage() {
               </div>
 
               {hasScores && (
-                <ScoreBadges
-                  product={product}
-                  className="grid grid-cols-2 items-start gap-4"
-                />
+                <ScoreBadges product={product} mobile />
               )}
 
               {hasProductTags && (
