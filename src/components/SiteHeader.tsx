@@ -4,10 +4,15 @@ import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 
 const scannerAction = (
-  <Button asChild variant="outline" size="sm">
-    <Link to="/scanner">
+  <Button
+    asChild
+    variant="outline"
+    size="sm"
+    className="w-9 px-0 sm:w-auto sm:px-3"
+  >
+    <Link to="/scanner" aria-label="Scanner">
       <ScanLine className="size-4" />
-      Scanner
+      <span className="hidden sm:inline">Scanner</span>
     </Link>
   </Button>
 )

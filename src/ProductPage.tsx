@@ -2,7 +2,7 @@ import { ArrowLeft, ImageOff, PackageSearch, ScanLine } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import ScoreBadge from '@/components/ScoreBadge'
+import ScoreScale, { type ScoreSegment } from '@/components/ScoreScale'
 import SiteHeader from '@/components/SiteHeader'
 import { cn } from '@/lib/utils'
 import { fetchProductDetails } from '@/lib/openFoodFacts'
@@ -89,6 +89,110 @@ function NutrientLevels({ levels }: { levels: NutrientLevel[] }) {
         })}
       </ul>
     </section>
+  )
+}
+
+const gradeSegments: ScoreSegment[] = ['A', 'B', 'C', 'D', 'E'].map(
+  (value, index) => ({ value, rating: index + 1 }),
+)
+
+const novaSegments: ScoreSegment[] = [1, 2, 3, 4].map((value) => ({
+  value: String(value),
+  rating: novaRating[value] ?? 3,
+}))
+
+function ScoreBadges({
+  product,
+  className,
+}: {
+  product: ProductDetails
+  className?: string
+}) {
+  if (!product.nutriScore && !product.ecoScore && product.novaGroup === null) {
+    return null
+  }
+
+  const nutriGrade = product.nutriScore?.toUpperCase()
+  const ecoGrade = product.ecoScore?.toUpperCase()
+
+  return (
+    <div className={cn('space-y-4', className)}>
+      {nutriGrade && (
+        <ScoreScale
+          label="Nutri-Score"
+          segments={gradeSegments}
+          activeIndex={(nutriScoreRating[nutriGrade] ?? 3) - 1}
+        />
+      )}
+      {ecoGrade && (
+        <ScoreScale
+          label="Eco-Score"
+          segments={gradeSegments}
+          activeIndex={(ecoScoreRating[ecoGrade] ?? 3) - 1}
+        />
+      )}
+      {product.novaGroup !== null && (
+        <ScoreScale
+          label="NOVA"
+          segments={novaSegments}
+          activeIndex={product.novaGroup - 1}
+        />
+      )}
+    </div>
+  )
+}
+
+function ProductTags({ product }: { product: ProductDetails }) {
+  if (
+    !product.labels &&
+    !product.allergens &&
+    !product.ingredientsAnalysis
+  ) {
+    return null
+  }
+
+  return (
+    <div className="space-y-4">
+      {product.labels && (
+        <TagGroup label="Labels" values={splitTags(product.labels)} />
+      )}
+      {product.allergens && (
+        <TagGroup label="Allergens" values={splitTags(product.allergens)} />
+      )}
+      {product.ingredientsAnalysis && (
+        <TagGroup
+          label="Dietary analysis"
+          values={splitTags(product.ingredientsAnalysis)}
+        />
+      )}
+    </div>
+  )
+}
+
+function ProductFacts({ product }: { product: ProductDetails }) {
+  if (!product.quantity && !product.servingSize) {
+    return null
+  }
+
+  return (
+    <dl className="grid grid-cols-2 gap-4 text-sm">
+      {product.quantity && (
+        <div>
+          <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Quantity
+          </dt>
+          <dd className="mt-0.5 text-foreground">{product.quantity}</dd>
+        </div>
+      )}
+      {product.servingSize && (
+        <div>
+          <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Serving size
+          </dt>
+          <dd className="mt-0.5 text-foreground">{product.servingSize}</dd>
+        </div>
+      )}
+    </dl>
   )
 }
 
@@ -179,15 +283,19 @@ function ProductPage() {
         </div>
 
         {status === 'loading' && (
-          <div className="grid gap-8 md:grid-cols-[minmax(0,180px)_1fr]">
-            <div className="aspect-square w-40 animate-pulse rounded-xl bg-muted md:w-full" />
-            <div className="space-y-4">
-              <div className="h-8 w-2/3 animate-pulse rounded bg-muted" />
-              <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
+          <div className="grid gap-8 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-10">
+            <div className="space-y-6">
+              <div className="aspect-square w-full animate-pulse rounded-2xl bg-muted" />
               <div className="flex gap-2">
                 <div className="h-8 w-24 animate-pulse rounded-full bg-muted" />
                 <div className="h-8 w-24 animate-pulse rounded-full bg-muted" />
               </div>
+            </div>
+            <div className="space-y-4">
+              <div className="h-4 w-1/4 animate-pulse rounded bg-muted" />
+              <div className="h-9 w-2/3 animate-pulse rounded bg-muted" />
+              <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
+              <div className="mt-6 h-40 w-full animate-pulse rounded-xl bg-muted" />
             </div>
           </div>
         )}
@@ -226,183 +334,175 @@ function ProductPage() {
         )}
 
         {status === 'success' && product && product.isProductFound && (
-          <article className="space-y-10">
-            <div className="grid gap-4 md:grid-cols-[minmax(0,180px)_1fr] md:gap-8">
-              <div className="flex gap-4 md:contents">
-                <div className="flex aspect-square w-32 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted sm:w-40 md:w-full">
+          <article className="space-y-8">
+            {/* Mobile hero: image beside title + scores */}
+            <div className="space-y-6 lg:hidden">
+              <div className="flex gap-4">
+                <div className="flex aspect-square w-28 shrink-0 self-start items-center justify-center overflow-hidden rounded-xl border border-border bg-card sm:w-32">
                   {showImage ? (
                     <img
                       src={product.imageUrl ?? ''}
                       alt={product.name ?? 'Product'}
                       onError={() => setImageFailed(true)}
-                      className="size-full object-contain p-4"
+                      className="size-full object-contain p-3"
                     />
                   ) : (
-                    <ImageOff className="size-10 text-muted-foreground" />
+                    <ImageOff className="size-8 text-muted-foreground" />
                   )}
                 </div>
 
-                <div className="min-w-0 flex-1 space-y-4">
+                <div className="min-w-0 flex-1 space-y-3">
                   <div className="space-y-1">
+                    <p className="font-mono text-xs text-muted-foreground">
+                      {product.barcode}
+                    </p>
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                      {product.name ?? 'Unnamed product'}
+                    </h1>
+                    {product.brands && (
+                      <p className="text-sm text-muted-foreground">
+                        {product.brands}
+                      </p>
+                    )}
+                  </div>
+                  <ScoreBadges product={product} />
+                </div>
+              </div>
+
+              <ProductFacts product={product} />
+              <ProductTags product={product} />
+            </div>
+
+            {/* Desktop layout */}
+            <div className="lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-10">
+              {/* Desktop sidebar */}
+              <aside className="hidden space-y-6 lg:block lg:sticky lg:top-8 lg:self-start">
+                <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border border-border bg-card">
+                  {showImage ? (
+                    <img
+                      src={product.imageUrl ?? ''}
+                      alt={product.name ?? 'Product'}
+                      onError={() => setImageFailed(true)}
+                      className="size-full object-contain p-6"
+                    />
+                  ) : (
+                    <ImageOff className="size-12 text-muted-foreground" />
+                  )}
+                </div>
+
+                <div className="space-y-1">
                   <p className="font-mono text-xs text-muted-foreground">
                     {product.barcode}
                   </p>
-                  <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+                  <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                     {product.name ?? 'Unnamed product'}
                   </h1>
                   {product.brands && (
-                    <p className="text-muted-foreground">{product.brands}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {product.brands}
+                    </p>
                   )}
                 </div>
 
-                {(product.nutriScore ||
-                  product.ecoScore ||
-                  product.novaGroup !== null) && (
-                  <div className="flex flex-wrap gap-2">
-                    {product.nutriScore && (
-                      <ScoreBadge
-                        label="Nutri-Score"
-                        value={product.nutriScore}
-                        rating={nutriScoreRating[product.nutriScore] ?? 3}
-                      />
-                    )}
-                    {product.ecoScore && (
-                      <ScoreBadge
-                        label="Eco-Score"
-                        value={product.ecoScore}
-                        rating={ecoScoreRating[product.ecoScore] ?? 3}
-                      />
-                    )}
-                    {product.novaGroup !== null && (
-                      <ScoreBadge
-                        label="NOVA"
-                        value={String(product.novaGroup)}
-                        rating={novaRating[product.novaGroup] ?? 3}
-                      />
-                    )}
+                <ScoreBadges product={product} />
+                <ProductFacts product={product} />
+
+                {(product.labels ||
+                  product.allergens ||
+                  product.ingredientsAnalysis) && (
+                  <div className="border-t border-border pt-6">
+                    <ProductTags product={product} />
                   </div>
                 )}
-                </div>
-              </div>
+              </aside>
 
-              <div className="space-y-4 md:col-start-2">
-                <dl className="grid grid-cols-2 gap-4 text-sm">
-                  {product.quantity && (
-                    <div>
-                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Quantity
-                      </dt>
-                      <dd className="mt-0.5 text-foreground">
-                        {product.quantity}
-                      </dd>
-                    </div>
-                  )}
-                  {product.servingSize && (
-                    <div>
-                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Serving size
-                      </dt>
-                      <dd className="mt-0.5 text-foreground">
-                        {product.servingSize}
-                      </dd>
-                    </div>
-                  )}
-                </dl>
+              <div className="min-w-0 space-y-10">
+                {product.nutrientLevels.length > 0 && (
+                  <NutrientLevels levels={product.nutrientLevels} />
+                )}
 
-                <div className="space-y-3">
-                  {product.labels && (
-                    <TagGroup label="Labels" values={splitTags(product.labels)} />
-                  )}
-                  {product.allergens && (
-                    <TagGroup
-                      label="Allergens"
-                      values={splitTags(product.allergens)}
-                    />
-                  )}
-                  {product.ingredientsAnalysis && (
-                    <TagGroup
-                      label="Dietary analysis"
-                      values={splitTags(product.ingredientsAnalysis)}
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {product.nutrientLevels.length > 0 && (
-              <NutrientLevels levels={product.nutrientLevels} />
-            )}
-
-            <div className="grid gap-8 md:grid-cols-2">
-              <section className="space-y-3">
-                <h2 className="text-lg font-semibold text-foreground">
-                  Ingredients
-                </h2>
-                <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-                  {product.ingredients ??
-                    'No ingredients were provided by Open Food Facts for this product.'}
-                </p>
-              </section>
-
-              <section className="space-y-3">
-                <h2 className="text-lg font-semibold text-foreground">
-                  Nutrition
-                </h2>
-                {hasNutrients ? (
-                  <div className="overflow-hidden rounded-xl border border-border">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border bg-muted/50 text-left">
-                          <th className="px-4 py-2 font-medium text-muted-foreground">
-                            Typical values
-                          </th>
-                          <th className="px-4 py-2 text-right font-medium text-muted-foreground">
-                            Per 100&nbsp;g
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {product.nutrients.map((nutrient) => (
-                          <tr
-                            key={nutrient.id}
-                            className="border-b border-border last:border-b-0"
-                          >
-                            <th
-                              scope="row"
-                              className={cn(
-                                'px-4 py-2 text-left font-normal text-foreground',
-                                nutrient.indent && 'pl-8 text-muted-foreground',
-                              )}
-                            >
-                              {nutrient.label}
-                            </th>
-                            <td className="px-4 py-2 text-right tabular-nums text-foreground">
-                              {nutrient.text
-                                ? nutrient.text
-                                : nutrient.value !== null
-                                  ? `${nutrient.value} ${nutrient.unit}`.trim()
-                                  : '—'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No nutrition information was provided by Open Food Facts for
-                    this product.
+                <section className="space-y-3">
+                  <h2 className="text-lg font-semibold text-foreground">
+                    Ingredients
+                  </h2>
+                  <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+                    {product.ingredients ??
+                      'No ingredients were provided by Open Food Facts for this product.'}
                   </p>
-                )}
-              </section>
-            </div>
+                </section>
 
-            {product.categories && (
-              <TagGroup
-                label="Categories"
-                values={splitTags(product.categories)}
-              />
-            )}
+                <section className="space-y-3">
+                  <h2 className="text-lg font-semibold text-foreground">
+                    Nutrition
+                  </h2>
+                  {hasNutrients ? (
+                    <div className="overflow-hidden rounded-xl border border-border">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/50 text-left">
+                            <th className="px-4 py-2 font-medium text-muted-foreground">
+                              Typical values
+                            </th>
+                            <th className="px-4 py-2 text-right font-medium text-muted-foreground">
+                              Per 100&nbsp;g
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {product.nutrients.map((nutrient) => (
+                            <tr
+                              key={nutrient.id}
+                              className="border-b border-border last:border-b-0"
+                            >
+                              <th
+                                scope="row"
+                                className={cn(
+                                  'px-4 py-2 text-left font-normal text-foreground',
+                                  nutrient.indent &&
+                                    'pl-8 text-muted-foreground',
+                                )}
+                              >
+                                {nutrient.label}
+                              </th>
+                              <td className="px-4 py-2 text-right tabular-nums text-foreground">
+                                {nutrient.text
+                                  ? nutrient.text
+                                  : nutrient.value !== null
+                                    ? `${nutrient.value} ${nutrient.unit}`.trim()
+                                    : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No nutrition information was provided by Open Food Facts
+                      for this product.
+                    </p>
+                  )}
+                </section>
+
+                {product.categories && (
+                  <section className="space-y-3">
+                    <h2 className="text-lg font-semibold text-foreground">
+                      Categories
+                    </h2>
+                    <div className="flex flex-wrap gap-1.5">
+                      {splitTags(product.categories).map((value) => (
+                        <span
+                          key={value}
+                          className="rounded-full border border-border bg-card px-2.5 py-0.5 text-xs text-foreground"
+                        >
+                          {value}
+                        </span>
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </div>
+            </div>
           </article>
         )}
       </main>
