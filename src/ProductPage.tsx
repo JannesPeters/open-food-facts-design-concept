@@ -118,54 +118,85 @@ function ScoreBadges({
   return (
     <div className={cn('space-y-4', className)}>
       {nutriGrade && (
-        <ScoreScale
-          label="Nutri-Score"
-          segments={gradeSegments}
-          activeIndex={(nutriScoreRating[nutriGrade] ?? 3) - 1}
-        />
+        <div className="min-w-0">
+          <ScoreScale
+            label="Nutri-Score"
+            segments={gradeSegments}
+            activeIndex={(nutriScoreRating[nutriGrade] ?? 3) - 1}
+          />
+        </div>
       )}
       {ecoGrade && (
-        <ScoreScale
-          label="Eco-Score"
-          segments={gradeSegments}
-          activeIndex={(ecoScoreRating[ecoGrade] ?? 3) - 1}
-        />
+        <div className="min-w-0">
+          <ScoreScale
+            label="Eco-Score"
+            segments={gradeSegments}
+            activeIndex={(ecoScoreRating[ecoGrade] ?? 3) - 1}
+          />
+        </div>
       )}
       {product.novaGroup !== null && (
-        <ScoreScale
-          label="NOVA"
-          segments={novaSegments}
-          activeIndex={product.novaGroup - 1}
-        />
+        <div className="min-w-0">
+          <ScoreScale
+            label="NOVA"
+            segments={novaSegments}
+            activeIndex={product.novaGroup - 1}
+          />
+        </div>
       )}
     </div>
   )
 }
 
-function ProductTags({ product }: { product: ProductDetails }) {
-  if (
-    !product.labels &&
-    !product.allergens &&
-    !product.ingredientsAnalysis
-  ) {
+function ProductTags({
+  product,
+  className,
+}: {
+  product: ProductDetails
+  className?: string
+}) {
+  if (!product.allergens && !product.ingredientsAnalysis) {
     return null
   }
 
   return (
-    <div className="space-y-4">
-      {product.labels && (
-        <TagGroup label="Labels" values={splitTags(product.labels)} />
-      )}
+    <div className={cn('space-y-4', className)}>
       {product.allergens && (
-        <TagGroup label="Allergens" values={splitTags(product.allergens)} />
+        <div className="min-w-0">
+          <TagGroup label="Allergens" values={splitTags(product.allergens)} />
+        </div>
       )}
       {product.ingredientsAnalysis && (
-        <TagGroup
-          label="Dietary analysis"
-          values={splitTags(product.ingredientsAnalysis)}
-        />
+        <div className="min-w-0">
+          <TagGroup
+            label="Dietary analysis"
+            values={splitTags(product.ingredientsAnalysis)}
+          />
+        </div>
       )}
     </div>
+  )
+}
+
+function ProductLabels({ product }: { product: ProductDetails }) {
+  if (!product.labels) {
+    return null
+  }
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold text-foreground">Labels</h2>
+      <div className="flex flex-wrap gap-1.5">
+        {splitTags(product.labels).map((value) => (
+          <span
+            key={value}
+            className="rounded-full border border-border bg-card px-2.5 py-0.5 text-xs text-foreground"
+          >
+            {value}
+          </span>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -272,6 +303,12 @@ function ProductPage() {
   const hasNutrients = product?.nutrients.some(
     (nutrient) => nutrient.value !== null || nutrient.text,
   )
+  const hasScores = Boolean(
+    product?.nutriScore || product?.ecoScore || product?.novaGroup !== null,
+  )
+  const hasProductTags = Boolean(
+    product?.allergens || product?.ingredientsAnalysis,
+  )
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -335,7 +372,7 @@ function ProductPage() {
 
         {status === 'success' && product && product.isProductFound && (
           <article className="space-y-8">
-            {/* Mobile hero: image beside title + scores */}
+            {/* Mobile hero: image beside title */}
             <div className="space-y-6 lg:hidden">
               <div className="flex gap-4">
                 <div className="flex aspect-square w-28 shrink-0 self-start items-center justify-center overflow-hidden rounded-xl border border-border bg-card sm:w-32">
@@ -365,12 +402,21 @@ function ProductPage() {
                       </p>
                     )}
                   </div>
-                  <ScoreBadges product={product} />
                 </div>
               </div>
 
+              {hasScores && (
+                <ScoreBadges
+                  product={product}
+                  className="grid grid-cols-2 items-start gap-4"
+                />
+              )}
+
+              {hasProductTags && (
+                <ProductTags product={product} />
+              )}
+
               <ProductFacts product={product} />
-              <ProductTags product={product} />
             </div>
 
             {/* Desktop layout */}
@@ -407,9 +453,7 @@ function ProductPage() {
                 <ScoreBadges product={product} />
                 <ProductFacts product={product} />
 
-                {(product.labels ||
-                  product.allergens ||
-                  product.ingredientsAnalysis) && (
+                {(product.allergens || product.ingredientsAnalysis) && (
                   <div className="border-t border-border pt-6">
                     <ProductTags product={product} />
                   </div>
@@ -501,6 +545,8 @@ function ProductPage() {
                     </div>
                   </section>
                 )}
+
+                <ProductLabels product={product} />
               </div>
             </div>
           </article>
