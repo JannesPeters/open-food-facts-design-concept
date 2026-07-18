@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
-import { ArrowLeft, LogIn, ScanLine } from 'lucide-react'
+import { ArrowLeft, CircleUserRound, LogIn, ScanLine } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { useSessionUser } from '@/lib/sessionUser'
 
 const scannerAction = (
   <Button
@@ -27,6 +28,20 @@ const loginAction = (
     <Link to="/login" aria-label="Sign in">
       <LogIn className="size-4" />
       <span className="hidden sm:inline">Sign in</span>
+    </Link>
+  </Button>
+)
+
+const profileAction = (
+  <Button
+    asChild
+    variant="outline"
+    size="sm"
+    className="w-9 px-0 sm:w-auto sm:px-3"
+  >
+    <Link to="/profile" aria-label="Profile">
+      <CircleUserRound className="size-4" />
+      <span className="hidden sm:inline">Profile</span>
     </Link>
   </Button>
 )
@@ -85,6 +100,8 @@ function SiteHeader({
       ? 'fixed inset-x-0 top-0 z-40 border-b border-primary bg-primary'
       : 'fixed inset-x-0 top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80'
   const isActionOnlyMode = center === null
+  const sessionUser = useSessionUser()
+  const accountAction = sessionUser ? profileAction : loginAction
 
   return (
     <>
@@ -94,7 +111,7 @@ function SiteHeader({
             <div className="flex min-w-0 items-center justify-start">{leading}</div>
             <div className="flex min-w-0 items-center justify-end gap-1.5">
               {trailing}
-              {showLoginAction ? loginAction : null}
+              {showLoginAction ? accountAction : null}
             </div>
           </div>
         ) : (
@@ -107,7 +124,7 @@ function SiteHeader({
 
             <div className="flex min-w-0 items-center justify-end gap-1.5">
               {trailing}
-              {showLoginAction ? loginAction : null}
+              {showLoginAction ? accountAction : null}
             </div>
           </div>
         )}
