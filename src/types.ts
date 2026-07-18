@@ -35,6 +35,13 @@ export interface ProductDetails {
   nutrients: NutrientValue[]
   nutrientLevels: NutrientLevel[]
   isProductFound: boolean
+  createdAt: number | null
+  creator: string | null
+  lastModifiedAt: number | null
+  lastEditor: string | null
+  editorCount: number
+  lastCheckedAt: number | null
+  lastChecker: string | null
 }
 
 export interface ProductSearchResult {
@@ -55,3 +62,4 @@ export interface ProductSearchResponse {
   pageSize: number
   pageCount: number
 }
+

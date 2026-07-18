@@ -25,6 +25,13 @@ const requestedFields = [
   'categories',
   'labels',
   'ingredients_analysis_tags',
+  'created_t',
+  'creator',
+  'last_modified_t',
+  'last_editor',
+  'editors_tags',
+  'last_checked_t',
+  'last_checker',
 ].join(',')
 
 const openFoodFactsOrigin = 'https://world.openfoodfacts.org'
@@ -81,6 +88,13 @@ interface OpenFoodFactsProduct {
   categories?: string
   labels?: string
   ingredients_analysis_tags?: string[]
+  created_t?: number | string
+  creator?: string
+  last_modified_t?: number | string
+  last_editor?: string
+  editors_tags?: string[]
+  last_checked_t?: number | string
+  last_checker?: string
 }
 
 interface OpenFoodFactsResponse {
@@ -254,6 +268,13 @@ const buildMissingProductDetails = (barcode: string): ProductDetails => ({
   nutrients: buildNutrients(undefined),
   nutrientLevels: [],
   isProductFound: false,
+  createdAt: null,
+  creator: null,
+  lastModifiedAt: null,
+  lastEditor: null,
+  editorCount: 0,
+  lastCheckedAt: null,
+  lastChecker: null,
 })
 
 const mapProductDetails = (
@@ -284,6 +305,15 @@ const mapProductDetails = (
       product?.nutriments,
     ),
     isProductFound: data.status === 1,
+    createdAt: readNumber(product?.created_t),
+    creator: cleanText(product?.creator),
+    lastModifiedAt: readNumber(product?.last_modified_t),
+    lastEditor: cleanText(product?.last_editor),
+    editorCount: Array.isArray(product?.editors_tags)
+      ? product.editors_tags.length
+      : 0,
+    lastCheckedAt: readNumber(product?.last_checked_t),
+    lastChecker: cleanText(product?.last_checker),
   }
 }
 
