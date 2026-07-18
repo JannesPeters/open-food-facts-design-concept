@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { ScanLine } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { ArrowLeft, ScanLine } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 
 const scannerAction = (
@@ -17,32 +17,64 @@ const scannerAction = (
   </Button>
 )
 
+export function HeaderBackButton({ label = 'Back' }: { label?: string }) {
+  const navigate = useNavigate()
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="-ml-2"
+      onClick={() => {
+        if (window.history.length > 1) {
+          navigate(-1)
+        } else {
+          navigate('/')
+        }
+      }}
+    >
+      <ArrowLeft className="size-4" />
+      {label}
+    </Button>
+  )
+}
+
 function SiteHeader({
+  leading = null,
   trailing = scannerAction,
 }: {
+  leading?: ReactNode
   trailing?: ReactNode
 }) {
   return (
-    <header className="border-b border-border">
-      <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-4">
-        <Link to="/" className="flex items-center gap-3">
-          <img
-            src="/off-logo.svg"
-            alt="Open Food Facts"
-            className="h-9 w-auto dark:hidden"
-          />
-          <img
-            src="/off-logo-dark.svg"
-            alt="Open Food Facts"
-            className="hidden h-9 w-auto dark:block"
-          />
-          <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
-            Concept
-          </span>
-        </Link>
-        {trailing}
-      </div>
-    </header>
+    <>
+      <header className="fixed inset-x-0 top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="mx-auto grid w-full max-w-5xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-6 py-2">
+          <div className="flex min-w-0 items-center justify-start">
+            {leading}
+          </div>
+
+          <Link to="/" className="flex items-center gap-2.5 justify-self-center">
+            <img
+              src="/off-logo-icon-light.svg"
+              alt="Open Food Facts"
+              className="h-10 w-auto dark:hidden"
+            />
+            <img
+              src="/off-logo-icon-dark.svg"
+              alt="Open Food Facts"
+              className="hidden h-10 w-auto dark:block"
+            />
+          </Link>
+
+          <div className="flex min-w-0 items-center justify-end">
+            {trailing}
+          </div>
+        </div>
+      </header>
+      <div className="h-[60px] shrink-0" aria-hidden />
+    </>
   )
 }
 

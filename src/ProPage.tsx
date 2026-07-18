@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import SiteHeader from '@/components/SiteHeader'
+import SiteHeader, { HeaderBackButton } from '@/components/SiteHeader'
 import { cn } from '@/lib/utils'
 
 const producersAction = (
@@ -154,7 +154,7 @@ function ImportPreview() {
 function ProPage() {
   return (
     <div className="flex min-h-dvh flex-col">
-      <SiteHeader trailing={producersAction} />
+      <SiteHeader leading={<HeaderBackButton />} trailing={producersAction} />
 
       <main className="flex-1">
         {/* Hero */}

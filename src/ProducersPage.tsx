@@ -13,7 +13,7 @@ import {
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import SiteHeader from '@/components/SiteHeader'
+import SiteHeader, { HeaderBackButton } from '@/components/SiteHeader'
 import { cn } from '@/lib/utils'
 
 const proAction = (
@@ -188,7 +188,7 @@ function DataDisclosure() {
 function ProducersPage() {
   return (
     <div className="flex min-h-dvh flex-col">
-      <SiteHeader trailing={proAction} />
+      <SiteHeader leading={<HeaderBackButton />} trailing={proAction} />
 
       <main className="flex-1">
         {/* Hero */}
