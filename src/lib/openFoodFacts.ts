@@ -22,9 +22,18 @@ const requestedFields = [
   'quantity',
   'serving_size',
   'allergens',
+  'allergens_from_ingredients',
+  'traces',
+  'additives_tags',
   'categories',
   'labels',
   'ingredients_analysis_tags',
+  'origins',
+  'manufacturing_places',
+  'emb_codes',
+  'countries',
+  'packaging',
+  'packaging_tags',
   'created_t',
   'creator',
   'last_modified_t',
@@ -85,9 +94,18 @@ interface OpenFoodFactsProduct {
   quantity?: string
   serving_size?: string
   allergens?: string
+  allergens_from_ingredients?: string
+  traces?: string
+  additives_tags?: string[]
   categories?: string
   labels?: string
   ingredients_analysis_tags?: string[]
+  origins?: string
+  manufacturing_places?: string
+  emb_codes?: string
+  countries?: string
+  packaging?: string
+  packaging_tags?: string[]
   created_t?: number | string
   creator?: string
   last_modified_t?: number | string
@@ -235,6 +253,27 @@ const cleanAnalysisTags = (tags: string[] | undefined): string | null => {
   return cleaned.length > 0 ? cleaned.join(', ') : null
 }
 
+const cleanRawTags = (tags: string[] | undefined): string | null => {
+  if (!Array.isArray(tags)) {
+    return null
+  }
+
+  const cleaned = tags
+    .map((tag) => tag.trim().replace(/^[a-z]{2}:/u, '').replace(/-/gu, ' '))
+    .map((tag) => {
+      if (!tag) {
+        return tag
+      }
+      if (/^e\d+/iu.test(tag)) {
+        return tag.toUpperCase()
+      }
+      return tag.charAt(0).toUpperCase() + tag.slice(1)
+    })
+    .filter((tag) => tag.length > 0 && !/status unknown$/iu.test(tag))
+
+  return cleaned.length > 0 ? cleaned.join(', ') : null
+}
+
 const normalizeNutriScore = (value: string | undefined): string | null => {
   const grade = value?.trim().toUpperCase()
   return grade && /^[A-E]$/u.test(grade) ? grade : null
@@ -262,9 +301,17 @@ const buildMissingProductDetails = (barcode: string): ProductDetails => ({
   quantity: null,
   servingSize: null,
   allergens: null,
+  allergensFromIngredients: null,
+  traces: null,
+  additives: null,
   categories: null,
   labels: null,
   ingredientsAnalysis: null,
+  origins: null,
+  manufacturingPlaces: null,
+  embCodes: null,
+  countries: null,
+  packaging: null,
   nutrients: buildNutrients(undefined),
   nutrientLevels: [],
   isProductFound: false,
@@ -296,9 +343,18 @@ const mapProductDetails = (
     quantity: cleanText(product?.quantity),
     servingSize: cleanText(product?.serving_size),
     allergens: cleanTagList(product?.allergens),
+    allergensFromIngredients: cleanTagList(product?.allergens_from_ingredients),
+    traces: cleanTagList(product?.traces),
+    additives: cleanRawTags(product?.additives_tags),
     categories: cleanTagList(product?.categories),
     labels: cleanTagList(product?.labels),
     ingredientsAnalysis: cleanAnalysisTags(product?.ingredients_analysis_tags),
+    origins: cleanTagList(product?.origins),
+    manufacturingPlaces: cleanTagList(product?.manufacturing_places),
+    embCodes: cleanTagList(product?.emb_codes),
+    countries: cleanTagList(product?.countries),
+    packaging:
+      cleanTagList(product?.packaging) ?? cleanRawTags(product?.packaging_tags),
     nutrients: buildNutrients(product?.nutriments),
     nutrientLevels: buildNutrientLevels(
       product?.nutrient_levels,

@@ -29,9 +29,17 @@ export interface ProductDetails {
   quantity: string | null
   servingSize: string | null
   allergens: string | null
+  allergensFromIngredients: string | null
+  traces: string | null
+  additives: string | null
   categories: string | null
   labels: string | null
   ingredientsAnalysis: string | null
+  origins: string | null
+  manufacturingPlaces: string | null
+  embCodes: string | null
+  countries: string | null
+  packaging: string | null
   nutrients: NutrientValue[]
   nutrientLevels: NutrientLevel[]
   isProductFound: boolean
@@ -62,4 +70,3 @@ export interface ProductSearchResponse {
   pageSize: number
   pageCount: number
 }
-
