@@ -316,6 +316,18 @@
     font: inherit;
   }
 
+  /* Hide number-input spinner arrows across browsers. */
+  input[type='number'] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
   h1,
   h2,
   h3,

@@ -32,7 +32,7 @@ The UI is built with **shadcn/ui** — copy-in React components rather than an i
 
 - **Style:** `new-york`, non-RSC, TSX components
 - **Components:** live in `src/components/ui/` (button, card, input, textarea, select, separator, badge, label). Add new ones with the shadcn CLI or by following the same pattern.
-- **Primitives:** [Radix UI](https://www.radix-ui.com/) (`@radix-ui/react-*`) provide the accessible behavior under the hood.
+- **Primitives:** [Radix UI](https://www.radix-ui.com/) (the unified `radix-ui` package) provides the accessible behavior under the hood.
 - **Styling tokens:** Tailwind CSS v4 with CSS variables (base color **slate**), defined in `src/index.css`.
 - **Variants & class merging:** `class-variance-authority` for component variants, plus the `cn()` helper (`clsx` + `tailwind-merge`) in `src/lib/utils.ts`.
 - **Animations:** `tailwindcss-animate`.

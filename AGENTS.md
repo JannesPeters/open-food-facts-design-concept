@@ -19,8 +19,8 @@ A modern, consumer-facing redesign of the Open Food Facts website. See `README.m
 
 The UI uses **shadcn/ui** — copy-in components, not an installed library. Config is in `components.json` (`new-york` style, non-RSC, TSX, base color `slate`, CSS variables).
 
-- UI components live in `src/components/ui/` (button, card, input, textarea, select, separator, badge, label). Add new ones via the shadcn CLI or by matching the existing pattern — do not hand-roll ad-hoc equivalents.
-- Built on **Radix UI** primitives (`@radix-ui/react-*`) for accessibility.
+- UI components live in `src/components/ui/` (button, card, input, textarea, select, separator, badge, label). Add new ones via the shadcn CLI or by matching the existing pattern — do not hand-roll ad-hoc equivalents. **When a shadcn component exists for a UI pattern (e.g., dialog, sheet, popover, dropdown, tabs), always use it instead of building a custom primitive.**
+- Built on **Radix UI** primitives (the unified `radix-ui` package) for accessibility.
 - Styling tokens are Tailwind CSS v4 CSS variables defined in `src/index.css`; prefer these tokens over hard-coded colors.
 - Use the `cn()` helper (`@/lib/utils`, backed by `clsx` + `tailwind-merge`) for conditional classes and `class-variance-authority` for component variants.
 - Icons come from `lucide-react`; animations from `tailwindcss-animate`.

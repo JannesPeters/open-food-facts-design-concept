@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import ScrollToTop from '@/components/ScrollToTop'
 
 const HomePage = lazy(() => import('./HomePage'))
+const LoginPage = lazy(() => import('./LoginPage'))
 const ProductPage = lazy(() => import('./ProductPage'))
 const ProducersPage = lazy(() => import('./ProducersPage'))
 const ProPage = lazy(() => import('./ProPage'))
@@ -16,6 +17,7 @@ function App() {
       <Suspense fallback={<div className="min-h-dvh bg-background" />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/scanner" element={<ScannerPage />} />
           <Route path="/producers" element={<ProducersPage />} />
