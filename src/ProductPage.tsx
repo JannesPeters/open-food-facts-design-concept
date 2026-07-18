@@ -1,4 +1,4 @@
-import { ArrowLeft, ImageOff, PackageSearch, ScanLine, Settings2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, ImageOff, PackageSearch, ScanLine, Settings2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -27,7 +27,12 @@ import {
   sanitizeBarcode,
   splitTags,
 } from '@/lib/scores'
-import type { NutrientLevel, NutrientValue, ProductDetails } from '@/types'
+import type {
+  NutrientLevel,
+  NutrientValue,
+  ProductDetails,
+  ProductPriceSummary,
+} from '@/types'
 
 type EditorKind = 'text' | 'textarea' | 'number'
 
@@ -114,6 +119,7 @@ function EditableFieldTrigger({
     </button>
   )
 }
+
 
 function TagGroup({ label, values }: { label: string; values: string[] }) {
   if (values.length === 0) {
@@ -324,7 +330,14 @@ function ProductTags({
     helpText?: string,
   ) => void
 }) {
-  if (!isEditMode && !product.allergens && !product.ingredientsAnalysis) {
+  if (
+    !isEditMode &&
+    !product.allergens &&
+    !product.allergensFromIngredients &&
+    !product.traces &&
+    !product.additives &&
+    !product.ingredientsAnalysis
+  ) {
     return null
   }
 
@@ -354,6 +367,24 @@ function ProductTags({
           )}
         </div>
       )}
+      {product.allergensFromIngredients && (
+        <div className="min-w-0">
+          <TagGroup
+            label="Allergens from ingredients"
+            values={splitTags(product.allergensFromIngredients)}
+          />
+        </div>
+      )}
+      {product.traces && (
+        <div className="min-w-0">
+          <TagGroup label="May contain traces of" values={splitTags(product.traces)} />
+        </div>
+      )}
+      {product.additives && (
+        <div className="min-w-0">
+          <TagGroup label="Additives" values={splitTags(product.additives)} />
+        </div>
+      )}
       {product.ingredientsAnalysis && (
         <div className="min-w-0">
           <TagGroup
@@ -363,6 +394,65 @@ function ProductTags({
         </div>
       )}
     </div>
+  )
+}
+
+function ProductOrigins({ product }: { product: ProductDetails }) {
+  if (
+    !product.origins &&
+    !product.manufacturingPlaces &&
+    !product.embCodes &&
+    !product.countries
+  ) {
+    return null
+  }
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold text-foreground">Origins &amp; supply</h2>
+      <div className="space-y-4">
+        {product.origins && (
+          <TagGroup label="Origins" values={splitTags(product.origins)} />
+        )}
+        {product.manufacturingPlaces && (
+          <TagGroup
+            label="Manufacturing places"
+            values={splitTags(product.manufacturingPlaces)}
+          />
+        )}
+        {product.embCodes && (
+          <TagGroup label="EMB codes" values={splitTags(product.embCodes)} />
+        )}
+        {product.countries && (
+          <TagGroup
+            label="Countries where sold"
+            values={splitTags(product.countries)}
+          />
+        )}
+      </div>
+    </section>
+  )
+}
+
+function ProductPackaging({ product }: { product: ProductDetails }) {
+  if (!product.packaging) {
+    return null
+  }
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold text-foreground">Packaging</h2>
+      <div className="flex flex-wrap gap-1.5">
+        {splitTags(product.packaging).map((value) => (
+          <span
+            key={value}
+            className="rounded-full border border-border bg-card px-2.5 py-0.5 text-xs text-foreground"
+          >
+            {value}
+          </span>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -447,6 +537,73 @@ function ProductFacts({
         </div>
       )}
     </dl>
+  )
+}
+
+const formatPriceValue = (value: number, currency: string | null): string => {
+  if (!currency) {
+    return value.toFixed(2)
+  }
+
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 2,
+    }).format(value)
+  } catch {
+    return `${value.toFixed(2)} ${currency}`
+  }
+}
+
+function ProductPrices({ summary }: { summary: ProductPriceSummary }) {
+  const minPrice =
+    summary.priceMin !== null
+      ? formatPriceValue(summary.priceMin, summary.statsCurrency)
+      : null
+  const maxPrice =
+    summary.priceMax !== null
+      ? formatPriceValue(summary.priceMax, summary.statsCurrency)
+      : null
+
+  if (summary.priceCount <= 0) {
+    return null
+  }
+
+  const range =
+    minPrice && maxPrice
+      ? minPrice === maxPrice
+        ? minPrice
+        : `${minPrice} – ${maxPrice}`
+      : null
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="text-lg font-semibold text-foreground">
+          Community prices
+        </h2>
+        <Link
+          to={`/product/${summary.barcode}/prices`}
+          className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+        >
+          View more
+          <ArrowRight className="size-4" />
+        </Link>
+      </div>
+      <div className="rounded-xl border border-border bg-card p-4">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Price range
+        </p>
+        <p className="mt-1 text-base font-semibold text-foreground">
+          {range ?? '—'}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Crowdsourced from Open Prices ({summary.priceCount}{' '}
+          {summary.priceCount === 1 ? 'report' : 'reports'}).
+        </p>
+      </div>
+    </section>
   )
 }
 
@@ -798,7 +955,12 @@ function ProductPage() {
     product?.nutriScore || product?.ecoScore || product?.novaGroup !== null,
   )
   const hasProductTags = Boolean(
-    isEditMode || product?.allergens || product?.ingredientsAnalysis,
+    isEditMode ||
+      product?.allergens ||
+      product?.allergensFromIngredients ||
+      product?.traces ||
+      product?.additives ||
+      product?.ingredientsAnalysis,
   )
 
   return (
@@ -1020,7 +1182,7 @@ function ProductPage() {
                   }
                 />
 
-                {(isEditMode || product.allergens || product.ingredientsAnalysis) && (
+                {hasProductTags && (
                   <div className="border-t border-border pt-6">
                     <ProductTags
                       product={product}
@@ -1041,6 +1203,10 @@ function ProductPage() {
               <div className="min-w-0 space-y-10">
                 {product.nutrientLevels.length > 0 && (
                   <NutrientLevels levels={product.nutrientLevels} />
+                )}
+
+                {product.priceSummary && (
+                  <ProductPrices summary={product.priceSummary} />
                 )}
 
                 <section className="space-y-3">
@@ -1168,6 +1334,8 @@ function ProductPage() {
                     )
                   }
                 />
+                <ProductOrigins product={product} />
+                <ProductPackaging product={product} />
 
                 <ProductHistory product={product} />
               </div>

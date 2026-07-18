@@ -148,8 +148,8 @@ function HomePage() {
           <p className="mx-auto max-w-2xl text-balance text-lg text-muted-foreground">
             Open Food Facts is a free, open, and collaborative database of food
             products from around the world. Anyone can explore ingredients,
-            nutrition facts, and environmental impact — and anyone can
-            contribute. This is a modern, consumer-first take on that mission.
+            nutrition facts, and environmental impact. Anyone can contribute.
+            This is a modern, consumer-first take on that mission.
           </p>
         </div>
 
