@@ -134,6 +134,31 @@ export const editableNutrientFields = [
 ] as const
 
 type EditableNutrientFieldDefinition = (typeof editableNutrientFields)[number]
+const editableEnergyNutrientId = 'energy'
+const parseEnergyNumber = (value: string | undefined): number | null => {
+  if (!value) {
+    return null
+  }
+  const parsed = Number(value.replace(',', '.'))
+  return Number.isFinite(parsed) ? parsed : null
+}
+const parseEnergyParts = (nutrient: ProductDetails['nutrients'][number]) => {
+  const kilojoules = parseEnergyNumber(
+    nutrient.text?.match(/([0-9]+(?:[.,][0-9]+)?)\s*kJ/iu)?.[1],
+  )
+  const kilocaloriesFromText = parseEnergyNumber(
+    nutrient.text?.match(/([0-9]+(?:[.,][0-9]+)?)\s*kcal/iu)?.[1],
+  )
+
+  return {
+    kilojoules,
+    kilocalories:
+      kilocaloriesFromText ??
+      (typeof nutrient.value === 'number' && Number.isFinite(nutrient.value)
+        ? nutrient.value
+        : null),
+  }
+}
 
 const editableNutrientFieldsById = new Map<string, EditableNutrientFieldDefinition>(
   editableNutrientFields.map((definition) => [definition.id, definition]),
@@ -153,7 +178,7 @@ export function normalizeEditableProductField(
 }
 
 export function isEditableNutrient(nutrientId: string): boolean {
-  return editableNutrientFieldsById.has(nutrientId)
+  return nutrientId === editableEnergyNutrientId || editableNutrientFieldsById.has(nutrientId)
 }
 
 export function buildChangedProductFields(
@@ -176,9 +201,31 @@ export function buildChangedProductFields(
   let hasNutrientChange = false
 
   current.nutrients.forEach((nutrient) => {
-    const definition = editableNutrientFieldsById.get(nutrient.id)
     const originalNutrient = originalNutrients.get(nutrient.id)
-    if (!definition || !originalNutrient || nutrient.value === originalNutrient.value) {
+    if (!originalNutrient) {
+      return
+    }
+
+    if (nutrient.id === editableEnergyNutrientId) {
+      const currentEnergy = parseEnergyParts(nutrient)
+      const originalEnergy = parseEnergyParts(originalNutrient)
+      if (
+        currentEnergy.kilojoules !== originalEnergy.kilojoules ||
+        currentEnergy.kilocalories !== originalEnergy.kilocalories
+      ) {
+        fields['nutriment_energy-kj'] =
+          currentEnergy.kilojoules === null ? '' : String(currentEnergy.kilojoules)
+        fields['nutriment_energy-kj_unit'] = 'kJ'
+        fields['nutriment_energy-kcal'] =
+          currentEnergy.kilocalories === null ? '' : String(currentEnergy.kilocalories)
+        fields['nutriment_energy-kcal_unit'] = 'kcal'
+        hasNutrientChange = true
+      }
+      return
+    }
+
+    const definition = editableNutrientFieldsById.get(nutrient.id)
+    if (!definition || nutrient.value === originalNutrient.value) {
       return
     }
 

@@ -87,13 +87,17 @@ function EditableFieldTrigger({
       type="button"
       onClick={onEdit}
       className={cn(
-        'group w-full rounded-md border border-transparent px-1 py-0.5 text-left transition hover:border-primary/40 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'group w-full rounded-md border border-dotted border-primary/70 px-1 py-0.5 text-left transition hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         className,
       )}
     >
       {children}
     </button>
   )
+}
+
+function EditablePlaceholder({ label }: { label: string }) {
+  return <span className="text-sm text-muted-foreground">Add {label}</span>
 }
 
 
@@ -327,6 +331,9 @@ function ProductTags({
                 label="Allergens"
                 values={splitTags(product.allergens ?? '')}
               />
+              {splitTags(product.allergens ?? '').length === 0 && (
+                <EditablePlaceholder label="allergens" />
+              )}
             </EditableFieldTrigger>
           ) : (
             <TagGroup label="Allergens" values={splitTags(product.allergens ?? '')} />
@@ -452,6 +459,9 @@ function ProductLabels({
             </span>
           ))}
         </div>
+        {isEditMode && splitTags(product.labels ?? '').length === 0 && (
+          <EditablePlaceholder label="labels" />
+        )}
       </EditableFieldTrigger>
     </section>
   )
@@ -737,6 +747,20 @@ type PendingContributionSubmit = {
   changedRows: SubmissionPreviewRow[]
   requestRows: SubmissionPreviewRow[]
 }
+type EnergyEditorValues = {
+  kilojoules: string
+  kilocalories: string
+}
+
+const readEnergyFromNutrient = (nutrient: NutrientValue): EnergyEditorValues => ({
+  kilojoules: nutrient.text?.match(/([0-9]+(?:[.,][0-9]+)?)\s*kJ/iu)?.[1] ?? '',
+  kilocalories:
+    nutrient.text?.match(/([0-9]+(?:[.,][0-9]+)?)\s*kcal/iu)?.[1] ??
+    (nutrient.value !== null ? String(nutrient.value) : ''),
+})
+
+const formatEnergyPart = (value: number): string =>
+  Number.isInteger(value) ? String(value) : String(value)
 
 function ProductPage() {
   const params = useParams<{ barcode: string }>()
@@ -751,6 +775,10 @@ function ProductPage() {
   const [editSessionOriginal, setEditSessionOriginal] = useState<ProductDetails | null>(null)
   const [editorState, setEditorState] = useState<EditorState | null>(null)
   const [editorValue, setEditorValue] = useState('')
+  const [energyEditorValues, setEnergyEditorValues] = useState<EnergyEditorValues>({
+    kilojoules: '',
+    kilocalories: '',
+  })
   const [editSubmitStatus, setEditSubmitStatus] = useState<EditSubmitStatus>('idle')
   const [editSubmitMessage, setEditSubmitMessage] = useState<string | null>(null)
   const [pendingContributionSubmit, setPendingContributionSubmit] =
@@ -785,15 +813,21 @@ function ProductPage() {
         return
       }
 
-      const currentValue = nutrient.value !== null ? String(nutrient.value) : ''
+      const isEnergy = nutrient.id === 'energy'
+      const currentValue = isEnergy ? '' : nutrient.value !== null ? String(nutrient.value) : ''
       setEditorState({
         target: { type: 'nutrient', index },
         label: `${nutrient.label} (per 100g)`,
         kind: 'number',
         value: currentValue,
-        helpText: 'Use OFF numeric format (per 100g), e.g. 12.5',
+        helpText: isEnergy
+          ? 'Provide either or both values (kJ and kcal) per 100g.'
+          : 'Use OFF numeric format (per 100g), e.g. 12.5',
       })
       setEditorValue(currentValue)
+      setEnergyEditorValues(
+        isEnergy ? readEnergyFromNutrient(nutrient) : { kilojoules: '', kilocalories: '' },
+      )
     },
     [isEditMode],
   )
@@ -801,6 +835,7 @@ function ProductPage() {
   const closeEditor = useCallback(() => {
     setEditorState(null)
     setEditorValue('')
+    setEnergyEditorValues({ kilojoules: '', kilocalories: '' })
   }, [])
 
   const startEditMode = useCallback(() => {
@@ -944,14 +979,42 @@ function ProductPage() {
         return current
       }
 
-      const trimmed = editorValue.trim()
-      const nutrientValue = trimmed.replace(',', '.')
-      const parsed = Number(nutrientValue)
       const nutrientIndex = editorState.target.index
       const nextNutrients = current.nutrients.map((nutrient, index) => {
         if (index !== nutrientIndex) {
           return nutrient
         }
+        if (nutrient.id === 'energy') {
+          const kjRaw = energyEditorValues.kilojoules.trim().replace(',', '.')
+          const kcalRaw = energyEditorValues.kilocalories.trim().replace(',', '.')
+          const parsedKj = kjRaw ? Number(kjRaw) : null
+          const parsedKcal = kcalRaw ? Number(kcalRaw) : null
+
+          if (
+            (kjRaw && !Number.isFinite(parsedKj)) ||
+            (kcalRaw && !Number.isFinite(parsedKcal))
+          ) {
+            return nutrient
+          }
+
+          const parts: string[] = []
+          if (parsedKj !== null) {
+            parts.push(`${formatEnergyPart(parsedKj)} kJ`)
+          }
+          if (parsedKcal !== null) {
+            parts.push(`${formatEnergyPart(parsedKcal)} kcal`)
+          }
+
+          return {
+            ...nutrient,
+            value: parsedKcal,
+            text: parts.length > 0 ? parts.join(' / ') : null,
+          }
+        }
+
+        const trimmed = editorValue.trim()
+        const nutrientValue = trimmed.replace(',', '.')
+        const parsed = Number(nutrientValue)
         if (!trimmed) {
           return { ...nutrient, value: null, text: null }
         }
@@ -965,7 +1028,7 @@ function ProductPage() {
     })
 
     closeEditor()
-  }, [closeEditor, editorState, editorValue])
+  }, [closeEditor, editorState, editorValue, energyEditorValues])
 
   const loadProduct = useCallback(async (code: string) => {
     if (!code) {
@@ -1031,6 +1094,9 @@ function ProductPage() {
       product?.additives ||
       product?.ingredientsAnalysis,
   )
+  const isEnergyEditor =
+    editorState?.target.type === 'nutrient' &&
+    product?.nutrients[editorState.target.index]?.id === 'energy'
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -1151,18 +1217,20 @@ function ProductPage() {
             {/* Mobile hero: image beside title */}
             <div className="space-y-6 lg:hidden">
               <div className="flex gap-4">
-                <div className="flex aspect-square w-28 shrink-0 self-start items-center justify-center overflow-hidden rounded-xl border border-border bg-card sm:w-32">
-                  {showImage ? (
-                    <img
-                      src={product.imageUrl ?? ''}
-                      alt={product.name ?? 'Product'}
-                      onError={() => setImageFailed(true)}
-                      className="size-full object-contain p-3"
-                    />
-                  ) : (
-                    <ImageOff className="size-8 text-muted-foreground" />
-                  )}
-                </div>
+                {(showImage || isEditMode) && (
+                  <div className="flex aspect-square w-28 shrink-0 self-start items-center justify-center overflow-hidden rounded-xl border border-border bg-card sm:w-32">
+                    {showImage ? (
+                      <img
+                        src={product.imageUrl ?? ''}
+                        alt={product.name ?? 'Product'}
+                        onError={() => setImageFailed(true)}
+                        className="size-full object-contain p-3"
+                      />
+                    ) : (
+                      <ImageOff className="size-8 text-muted-foreground" />
+                    )}
+                  </div>
+                )}
 
                 <div className="min-w-0 flex-1 space-y-3">
                   <div className="space-y-1">
@@ -1174,7 +1242,7 @@ function ProductPage() {
                       onEdit={() => openFieldEditor('name')}
                     >
                       <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-                        {product.name ?? 'Unnamed product'}
+                        {product.name ?? (isEditMode ? 'Add product name' : 'Unnamed product')}
                       </h1>
                     </EditableFieldTrigger>
                     {(product.brands || isEditMode) && (
@@ -1214,18 +1282,20 @@ function ProductPage() {
             <div className="lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-10">
               {/* Desktop sidebar */}
               <aside className="hidden space-y-6 lg:block lg:sticky lg:top-8 lg:self-start">
-                <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border border-border bg-card">
-                  {showImage ? (
-                    <img
-                      src={product.imageUrl ?? ''}
-                      alt={product.name ?? 'Product'}
-                      onError={() => setImageFailed(true)}
-                      className="size-full object-contain p-6"
-                    />
-                  ) : (
-                    <ImageOff className="size-12 text-muted-foreground" />
-                  )}
-                </div>
+                {(showImage || isEditMode) && (
+                  <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border border-border bg-card">
+                    {showImage ? (
+                      <img
+                        src={product.imageUrl ?? ''}
+                        alt={product.name ?? 'Product'}
+                        onError={() => setImageFailed(true)}
+                        className="size-full object-contain p-6"
+                      />
+                    ) : (
+                      <ImageOff className="size-12 text-muted-foreground" />
+                    )}
+                  </div>
+                )}
 
                 <div className="space-y-1">
                   <p className="font-mono text-xs text-muted-foreground">
@@ -1236,7 +1306,7 @@ function ProductPage() {
                     onEdit={() => openFieldEditor('name')}
                   >
                     <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-                      {product.name ?? 'Unnamed product'}
+                      {product.name ?? (isEditMode ? 'Add product name' : 'Unnamed product')}
                     </h1>
                   </EditableFieldTrigger>
                   {(product.brands || isEditMode) && (
@@ -1288,7 +1358,9 @@ function ProductPage() {
                   >
                     <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
                       {product.ingredients ??
-                        'No ingredients were provided by Open Food Facts for this product.'}
+                        (isEditMode
+                          ? 'Add ingredients'
+                          : 'No ingredients were provided by Open Food Facts for this product.')}
                     </p>
                   </EditableFieldTrigger>
                 </section>
@@ -1321,7 +1393,7 @@ function ProductPage() {
                                 className={cn(
                                   'border-b border-border last:border-b-0',
                                   rowEditable &&
-                                    'cursor-pointer transition-colors hover:bg-accent/40',
+                                    'cursor-pointer outline-1 outline-dotted outline-primary/70 -outline-offset-1 transition-colors hover:bg-accent/40',
                                 )}
                                 onClick={() => {
                                   if (rowEditable) {
@@ -1379,6 +1451,9 @@ function ProductPage() {
                           </span>
                         ))}
                       </div>
+                      {isEditMode && splitTags(product.categories ?? '').length === 0 && (
+                        <EditablePlaceholder label="categories" />
+                      )}
                     </EditableFieldTrigger>
                   </section>
                 )}
@@ -1427,7 +1502,46 @@ function ProductPage() {
             </DialogHeader>
 
             <div className="space-y-2">
-              {editorState.kind === 'textarea' ? (
+              {isEnergyEditor ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-foreground" htmlFor="energy-kj">
+                      Energy (kJ)
+                    </label>
+                    <Input
+                      id="energy-kj"
+                      type="number"
+                      step="any"
+                      value={energyEditorValues.kilojoules}
+                      onChange={(event) =>
+                        setEnergyEditorValues((current) => ({
+                          ...current,
+                          kilojoules: event.target.value,
+                        }))
+                      }
+                      placeholder="e.g. 850"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-foreground" htmlFor="energy-kcal">
+                      Energy (kcal)
+                    </label>
+                    <Input
+                      id="energy-kcal"
+                      type="number"
+                      step="any"
+                      value={energyEditorValues.kilocalories}
+                      onChange={(event) =>
+                        setEnergyEditorValues((current) => ({
+                          ...current,
+                          kilocalories: event.target.value,
+                        }))
+                      }
+                      placeholder="e.g. 203"
+                    />
+                  </div>
+                </div>
+              ) : editorState.kind === 'textarea' ? (
                 <Textarea
                   id="product-field-editor"
                   value={editorValue}

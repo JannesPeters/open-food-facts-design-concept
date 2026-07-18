@@ -32,13 +32,16 @@ const buildProduct = (): ProductDetails => ({
   embCodes: null,
   countries: null,
   packaging: null,
-  nutrients: editableNutrientFields.map((definition) => ({
-    id: definition.id,
-    label: definition.label,
-    unit: definition.unit,
-    value: 1,
-    indent: 'indent' in definition ? definition.indent : undefined,
-  })),
+  nutrients: [
+    { id: 'energy', label: 'Energy', unit: '', value: 101, text: '422 kJ / 101 kcal' },
+    ...editableNutrientFields.map((definition) => ({
+      id: definition.id,
+      label: definition.label,
+      unit: definition.unit,
+      value: 1,
+      indent: 'indent' in definition ? definition.indent : undefined,
+    })),
+  ],
   nutrientLevels: [],
   isProductFound: true,
   createdAt: null,
@@ -109,6 +112,25 @@ describe('editable nutrient registry', () => {
     const current = buildProduct()
 
     expect(buildChangedProductFields(current, original)).toEqual({})
+  })
+
+  it('includes energy-kj and energy-kcal when energy changes', () => {
+    const original = buildProduct()
+    const current = buildProduct()
+    const energy = current.nutrients.find(({ id }) => id === 'energy')
+    if (!energy) {
+      throw new Error('Missing energy test nutrient')
+    }
+    energy.value = 120
+    energy.text = '502 kJ / 120 kcal'
+
+    expect(buildChangedProductFields(current, original)).toEqual({
+      'nutriment_energy-kj': '502',
+      'nutriment_energy-kj_unit': 'kJ',
+      'nutriment_energy-kcal': '120',
+      'nutriment_energy-kcal_unit': 'kcal',
+      nutrition_data_per: '100g',
+    })
   })
 })
 
