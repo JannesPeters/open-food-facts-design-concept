@@ -1,7 +1,17 @@
-import { ArrowLeft, ArrowRight, ImageOff, PackageSearch, ScanLine } from 'lucide-react'
+import { ArrowLeft, ArrowRight, ImageOff, PackageSearch, ScanLine, Settings2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import ScoreScale, { type ScoreSegment } from '@/components/ScoreScale'
 import SiteHeader from '@/components/SiteHeader'
 import { cn } from '@/lib/utils'
@@ -17,7 +27,99 @@ import {
   sanitizeBarcode,
   splitTags,
 } from '@/lib/scores'
-import type { NutrientLevel, ProductDetails, ProductPriceSummary } from '@/types'
+import type {
+  NutrientLevel,
+  NutrientValue,
+  ProductDetails,
+  ProductPriceSummary,
+} from '@/types'
+
+type EditorKind = 'text' | 'textarea' | 'number'
+
+type EditableProductFieldKey =
+  | 'name'
+  | 'brands'
+  | 'quantity'
+  | 'servingSize'
+  | 'ingredients'
+  | 'allergens'
+  | 'categories'
+  | 'labels'
+
+type EditorTarget =
+  | { type: 'field'; key: EditableProductFieldKey }
+  | { type: 'nutrient'; index: number }
+
+interface EditorState {
+  target: EditorTarget
+  label: string
+  kind: EditorKind
+  value: string
+  helpText?: string
+}
+
+const normalizeNullableText = (value: string): string | null => {
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+const normalizeOffTagList = (value: string): string | null => {
+  const normalized = value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+    .map((entry) => {
+      const match = entry.match(/^([a-z]{2}):(.*)$/iu)
+      const prefix = match ? `${match[1].toLowerCase()}:` : ''
+      const rawLabel = match ? match[2] : entry
+      const slug = rawLabel
+        .trim()
+        .toLowerCase()
+        .replace(/[\s_]+/gu, '-')
+        .replace(/-+/gu, '-')
+        .replace(/^-+|-+$/gu, '')
+      return slug ? `${prefix}${slug}` : ''
+    })
+    .filter((entry) => entry.length > 0)
+
+  return normalized.length > 0 ? normalized.join(', ') : null
+}
+
+const cloneProductDetails = (product: ProductDetails): ProductDetails => ({
+  ...product,
+  nutrients: product.nutrients.map((nutrient) => ({ ...nutrient })),
+  nutrientLevels: product.nutrientLevels.map((level) => ({ ...level })),
+})
+
+function EditableFieldTrigger({
+  isEditMode,
+  onEdit,
+  children,
+  className,
+}: {
+  isEditMode: boolean
+  onEdit: () => void
+  children: ReactNode
+  className?: string
+}) {
+  if (!isEditMode) {
+    return <>{children}</>
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onEdit}
+      className={cn(
+        'group w-full rounded-md border border-transparent px-1 py-0.5 text-left transition hover:border-primary/40 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        className,
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
 
 function TagGroup({ label, values }: { label: string; values: string[] }) {
   if (values.length === 0) {
@@ -175,17 +277,19 @@ function ScoreBadges({
               index > 0 && 'border-t border-border',
             )}
           >
-            <span className="text-sm font-medium text-foreground">
-              {score.label}
-            </span>
-            <div className="shrink-0">
-              <ScoreScale
-                label={score.label}
-                segments={score.segments}
-                activeIndex={score.activeIndex}
-                hideLabel
-                size="sm"
-              />
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-sm font-medium text-foreground">
+                {score.label}
+              </span>
+              <div className="shrink-0">
+                <ScoreScale
+                  label={score.label}
+                  segments={score.segments}
+                  activeIndex={score.activeIndex}
+                  hideLabel
+                  size="sm"
+                />
+              </div>
             </div>
           </div>
         ))}
@@ -195,15 +299,17 @@ function ScoreBadges({
 
   return (
     <div className={cn('space-y-4', className)}>
-      {scoreItems.map((score) => (
-        <div key={score.label} className="min-w-0">
+    {scoreItems.map((score) => (
+      <div key={score.label}>
+        <div className="min-w-0">
           <ScoreScale
             label={score.label}
             segments={score.segments}
             activeIndex={score.activeIndex}
           />
         </div>
-      ))}
+      </div>
+    ))}
     </div>
   )
 }
@@ -211,11 +317,21 @@ function ScoreBadges({
 function ProductTags({
   product,
   className,
+  isEditMode = false,
+  onEditAllergens,
 }: {
   product: ProductDetails
   className?: string
+  isEditMode?: boolean
+  onEditAllergens?: (
+    key: 'allergens',
+    label: string,
+    kind: EditorKind,
+    helpText?: string,
+  ) => void
 }) {
   if (
+    !isEditMode &&
     !product.allergens &&
     !product.allergensFromIngredients &&
     !product.traces &&
@@ -227,9 +343,28 @@ function ProductTags({
 
   return (
     <div className={cn('space-y-4', className)}>
-      {product.allergens && (
+      {(product.allergens || isEditMode) && (
         <div className="min-w-0">
-          <TagGroup label="Allergens" values={splitTags(product.allergens)} />
+          {isEditMode ? (
+            <EditableFieldTrigger
+              isEditMode
+              onEdit={() =>
+                onEditAllergens?.(
+                  'allergens',
+                  'Allergens',
+                  'textarea',
+                  'Use OFF tag format (comma-separated), e.g. en:milk, en:soybeans.',
+                )
+              }
+            >
+              <TagGroup
+                label="Allergens"
+                values={splitTags(product.allergens ?? '')}
+              />
+            </EditableFieldTrigger>
+          ) : (
+            <TagGroup label="Allergens" values={splitTags(product.allergens ?? '')} />
+          )}
         </div>
       )}
       {product.allergensFromIngredients && (
@@ -254,7 +389,7 @@ function ProductTags({
         <div className="min-w-0">
           <TagGroup
             label="Dietary analysis"
-            values={splitTags(product.ingredientsAnalysis)}
+            values={splitTags(product.ingredientsAnalysis ?? '')}
           />
         </div>
       )}
@@ -321,49 +456,84 @@ function ProductPackaging({ product }: { product: ProductDetails }) {
   )
 }
 
-function ProductLabels({ product }: { product: ProductDetails }) {
-  if (!product.labels) {
+function ProductLabels({
+  product,
+  isEditMode = false,
+  onEditField,
+}: {
+  product: ProductDetails
+  isEditMode?: boolean
+  onEditField?: (key: EditableProductFieldKey) => void
+}) {
+  if (!isEditMode && !product.labels) {
     return null
   }
 
   return (
     <section className="space-y-3">
       <h2 className="text-lg font-semibold text-foreground">Labels</h2>
-      <div className="flex flex-wrap gap-1.5">
-        {splitTags(product.labels).map((value) => (
-          <span
-            key={value}
-            className="rounded-full border border-border bg-card px-2.5 py-0.5 text-xs text-foreground"
-          >
-            {value}
-          </span>
-        ))}
-      </div>
+      <EditableFieldTrigger
+        isEditMode={isEditMode}
+        onEdit={() => onEditField?.('labels')}
+      >
+        <div className="flex flex-wrap gap-1.5">
+          {splitTags(product.labels ?? '').map((value) => (
+            <span
+              key={value}
+              className="rounded-full border border-border bg-card px-2.5 py-0.5 text-xs text-foreground"
+            >
+              {value}
+            </span>
+          ))}
+        </div>
+      </EditableFieldTrigger>
     </section>
   )
 }
 
-function ProductFacts({ product }: { product: ProductDetails }) {
-  if (!product.quantity && !product.servingSize) {
+function ProductFacts({
+  product,
+  isEditMode = false,
+  onEditField,
+}: {
+  product: ProductDetails
+  isEditMode?: boolean
+  onEditField?: (key: EditableProductFieldKey) => void
+}) {
+  if (!isEditMode && !product.quantity && !product.servingSize) {
     return null
   }
 
   return (
     <dl className="grid grid-cols-2 gap-4 text-sm">
-      {product.quantity && (
+      {(product.quantity || isEditMode) && (
         <div>
           <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Quantity
           </dt>
-          <dd className="mt-0.5 text-foreground">{product.quantity}</dd>
+          <dd className="mt-0.5 text-foreground">
+            <EditableFieldTrigger
+              isEditMode={isEditMode}
+              onEdit={() => onEditField?.('quantity')}
+            >
+              {product.quantity ?? 'Add quantity'}
+            </EditableFieldTrigger>
+          </dd>
         </div>
       )}
-      {product.servingSize && (
+      {(product.servingSize || isEditMode) && (
         <div>
           <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Serving size
           </dt>
-          <dd className="mt-0.5 text-foreground">{product.servingSize}</dd>
+          <dd className="mt-0.5 text-foreground">
+            <EditableFieldTrigger
+              isEditMode={isEditMode}
+              onEdit={() => onEditField?.('servingSize')}
+            >
+              {product.servingSize ?? 'Add serving size'}
+            </EditableFieldTrigger>
+          </dd>
         </div>
       )}
     </dl>
@@ -602,8 +772,134 @@ function ProductPage() {
   const [product, setProduct] = useState<ProductDetails | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [imageFailed, setImageFailed] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [editSessionOriginal, setEditSessionOriginal] = useState<ProductDetails | null>(null)
+  const [editorState, setEditorState] = useState<EditorState | null>(null)
+  const [editorValue, setEditorValue] = useState('')
 
   const requestIdRef = useRef(0)
+
+  const openFieldEditor = useCallback(
+    (
+      key: EditableProductFieldKey,
+      label: string,
+      kind: EditorKind = 'text',
+      helpText?: string,
+    ) => {
+      if (!isEditMode || !product) {
+        return
+      }
+
+      const currentValue = product[key] ?? ''
+
+      setEditorState({
+        target: { type: 'field', key },
+        label,
+        kind,
+        value: currentValue,
+        helpText,
+      })
+      setEditorValue(currentValue)
+    },
+    [isEditMode, product],
+  )
+
+  const openNutrientEditor = useCallback(
+    (index: number, nutrient: NutrientValue) => {
+      if (!isEditMode) {
+        return
+      }
+
+      const currentValue = nutrient.value !== null ? String(nutrient.value) : ''
+      setEditorState({
+        target: { type: 'nutrient', index },
+        label: `${nutrient.label} (per 100g)`,
+        kind: 'number',
+        value: currentValue,
+        helpText: 'Use OFF numeric format (per 100g), e.g. 12.5',
+      })
+      setEditorValue(currentValue)
+    },
+    [isEditMode],
+  )
+
+  const closeEditor = useCallback(() => {
+    setEditorState(null)
+    setEditorValue('')
+  }, [])
+
+  const startEditMode = useCallback(() => {
+    if (!product) {
+      return
+    }
+    setEditSessionOriginal(cloneProductDetails(product))
+    setIsEditMode(true)
+  }, [product])
+
+  const discardEditMode = useCallback(() => {
+    if (editSessionOriginal) {
+      setProduct(cloneProductDetails(editSessionOriginal))
+    }
+    setIsEditMode(false)
+    setEditSessionOriginal(null)
+    closeEditor()
+  }, [closeEditor, editSessionOriginal])
+
+  const saveEditMode = useCallback(() => {
+    setIsEditMode(false)
+    setEditSessionOriginal(null)
+    closeEditor()
+  }, [closeEditor])
+
+  const saveEditorChanges = useCallback(() => {
+    if (!editorState) {
+      return
+    }
+
+    setProduct((current) => {
+      if (!current) {
+        return current
+      }
+
+      if (editorState.target.type === 'field') {
+        const next = { ...current }
+        const { key } = editorState.target
+
+        if (key === 'categories' || key === 'labels' || key === 'allergens') {
+          next[key] = normalizeOffTagList(editorValue)
+          return next
+        }
+
+        next[key] = normalizeNullableText(editorValue)
+        return next
+      }
+
+      if (editorState.target.type !== 'nutrient') {
+        return current
+      }
+
+      const trimmed = editorValue.trim()
+      const nutrientValue = trimmed.replace(',', '.')
+      const parsed = Number(nutrientValue)
+      const nutrientIndex = editorState.target.index
+      const nextNutrients = current.nutrients.map((nutrient, index) => {
+        if (index !== nutrientIndex) {
+          return nutrient
+        }
+        if (!trimmed) {
+          return { ...nutrient, value: null, text: null }
+        }
+        if (Number.isFinite(parsed)) {
+          return { ...nutrient, value: parsed, text: null }
+        }
+        return nutrient
+      })
+
+      return { ...current, nutrients: nextNutrients }
+    })
+
+    closeEditor()
+  }, [closeEditor, editorState, editorValue])
 
   const loadProduct = useCallback(async (code: string) => {
     if (!code) {
@@ -623,6 +919,9 @@ function ProductPage() {
         return
       }
       setProduct(details)
+      setIsEditMode(false)
+      setEditSessionOriginal(null)
+      closeEditor()
       setStatus('success')
     } catch (error) {
       if (requestId !== requestIdRef.current) {
@@ -651,11 +950,13 @@ function ProductPage() {
   const hasNutrients = product?.nutrients.some(
     (nutrient) => nutrient.value !== null || nutrient.text,
   )
+  const showNutritionTable = Boolean(isEditMode || hasNutrients)
   const hasScores = Boolean(
     product?.nutriScore || product?.ecoScore || product?.novaGroup !== null,
   )
   const hasProductTags = Boolean(
-    product?.allergens ||
+    isEditMode ||
+      product?.allergens ||
       product?.allergensFromIngredients ||
       product?.traces ||
       product?.additives ||
@@ -664,7 +965,37 @@ function ProductPage() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <SiteHeader leading={<BackButton />} />
+      {isEditMode ? (
+        <SiteHeader
+          tone="edit"
+          center={null}
+          showLoginAction={false}
+          leading={
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"
+              onClick={discardEditMode}
+            >
+              Discard
+            </Button>
+          }
+          trailing={
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"
+              onClick={saveEditMode}
+            >
+              Save
+            </Button>
+          }
+        />
+      ) : (
+        <SiteHeader leading={<BackButton />} />
+      )}
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-6 pb-10 pt-6">
         {status === 'loading' && (
@@ -741,13 +1072,25 @@ function ProductPage() {
                     <p className="font-mono text-xs text-muted-foreground">
                       {product.barcode}
                     </p>
-                    <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-                      {product.name ?? 'Unnamed product'}
-                    </h1>
-                    {product.brands && (
-                      <p className="text-sm text-muted-foreground">
-                        {product.brands}
-                      </p>
+                    <EditableFieldTrigger
+                      isEditMode={isEditMode}
+                      onEdit={() =>
+                        openFieldEditor('name', 'Product name', 'text')
+                      }
+                    >
+                      <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                        {product.name ?? 'Unnamed product'}
+                      </h1>
+                    </EditableFieldTrigger>
+                    {(product.brands || isEditMode) && (
+                      <EditableFieldTrigger
+                        isEditMode={isEditMode}
+                        onEdit={() => openFieldEditor('brands', 'Brands', 'text')}
+                      >
+                        <p className="text-sm text-muted-foreground">
+                          {product.brands ?? 'Add brands'}
+                        </p>
+                      </EditableFieldTrigger>
                     )}
                   </div>
                 </div>
@@ -758,10 +1101,31 @@ function ProductPage() {
               )}
 
               {hasProductTags && (
-                <ProductTags product={product} />
+                <ProductTags
+                  product={product}
+                  isEditMode={isEditMode}
+                  onEditAllergens={(key, label, kind, helpText) =>
+                    openFieldEditor(
+                      key,
+                      label,
+                      kind,
+                      helpText,
+                    )
+                  }
+                />
               )}
 
-              <ProductFacts product={product} />
+              <ProductFacts
+                product={product}
+                isEditMode={isEditMode}
+                onEditField={(key) =>
+                  openFieldEditor(
+                    key,
+                    key === 'quantity' ? 'Quantity' : 'Serving size',
+                    'text',
+                  )
+                }
+              />
             </div>
 
             {/* Desktop layout */}
@@ -785,22 +1149,53 @@ function ProductPage() {
                   <p className="font-mono text-xs text-muted-foreground">
                     {product.barcode}
                   </p>
-                  <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-                    {product.name ?? 'Unnamed product'}
-                  </h1>
-                  {product.brands && (
-                    <p className="text-sm text-muted-foreground">
-                      {product.brands}
-                    </p>
+                  <EditableFieldTrigger
+                    isEditMode={isEditMode}
+                    onEdit={() => openFieldEditor('name', 'Product name', 'text')}
+                  >
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                      {product.name ?? 'Unnamed product'}
+                    </h1>
+                  </EditableFieldTrigger>
+                  {(product.brands || isEditMode) && (
+                    <EditableFieldTrigger
+                      isEditMode={isEditMode}
+                      onEdit={() => openFieldEditor('brands', 'Brands', 'text')}
+                    >
+                      <p className="text-sm text-muted-foreground">
+                        {product.brands ?? 'Add brands'}
+                      </p>
+                    </EditableFieldTrigger>
                   )}
                 </div>
 
                 <ScoreBadges product={product} />
-                <ProductFacts product={product} />
+                <ProductFacts
+                  product={product}
+                  isEditMode={isEditMode}
+                  onEditField={(key) =>
+                    openFieldEditor(
+                      key,
+                      key === 'quantity' ? 'Quantity' : 'Serving size',
+                      'text',
+                    )
+                  }
+                />
 
                 {hasProductTags && (
                   <div className="border-t border-border pt-6">
-                    <ProductTags product={product} />
+                    <ProductTags
+                      product={product}
+                      isEditMode={isEditMode}
+                      onEditAllergens={(key, label, kind, helpText) =>
+                        openFieldEditor(
+                          key,
+                          label,
+                          kind,
+                          helpText,
+                        )
+                      }
+                    />
                   </div>
                 )}
               </aside>
@@ -818,17 +1213,24 @@ function ProductPage() {
                   <h2 className="text-lg font-semibold text-foreground">
                     Ingredients
                   </h2>
-                  <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-                    {product.ingredients ??
-                      'No ingredients were provided by Open Food Facts for this product.'}
-                  </p>
+                  <EditableFieldTrigger
+                    isEditMode={isEditMode}
+                    onEdit={() =>
+                      openFieldEditor('ingredients', 'Ingredients', 'textarea')
+                    }
+                  >
+                    <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+                      {product.ingredients ??
+                        'No ingredients were provided by Open Food Facts for this product.'}
+                    </p>
+                  </EditableFieldTrigger>
                 </section>
 
                 <section className="space-y-3">
                   <h2 className="text-lg font-semibold text-foreground">
                     Nutrition
                   </h2>
-                  {hasNutrients ? (
+                  {showNutritionTable ? (
                     <div className="overflow-hidden rounded-xl border border-border">
                       <table className="w-full text-sm">
                         <thead>
@@ -842,11 +1244,23 @@ function ProductPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {product.nutrients.map((nutrient) => (
-                            <tr
-                              key={nutrient.id}
-                              className="border-b border-border last:border-b-0"
-                            >
+                          {product.nutrients.map((nutrient, nutrientIndex) => {
+                            const rowEditable = isEditMode && nutrient.id !== 'energy'
+
+                            return (
+                              <tr
+                                key={nutrient.id}
+                                className={cn(
+                                  'border-b border-border last:border-b-0',
+                                  rowEditable &&
+                                    'cursor-pointer transition-colors hover:bg-accent/40',
+                                )}
+                                onClick={() => {
+                                  if (rowEditable) {
+                                    openNutrientEditor(nutrientIndex, nutrient)
+                                  }
+                                }}
+                              >
                               <th
                                 scope="row"
                                 className={cn(
@@ -865,7 +1279,8 @@ function ProductPage() {
                                     : '—'}
                               </td>
                             </tr>
-                          ))}
+                            )
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -877,34 +1292,118 @@ function ProductPage() {
                   )}
                 </section>
 
-                {product.categories && (
+                {(product.categories || isEditMode) && (
                   <section className="space-y-3">
                     <h2 className="text-lg font-semibold text-foreground">
                       Categories
                     </h2>
-                    <div className="flex flex-wrap gap-1.5">
-                      {splitTags(product.categories).map((value) => (
-                        <span
-                          key={value}
-                          className="rounded-full border border-border bg-card px-2.5 py-0.5 text-xs text-foreground"
-                        >
-                          {value}
-                        </span>
-                      ))}
-                    </div>
+                    <EditableFieldTrigger
+                      isEditMode={isEditMode}
+                      onEdit={() =>
+                        openFieldEditor(
+                          'categories',
+                          'Categories',
+                          'textarea',
+                          'Use OFF tag format (comma-separated), e.g. en:breakfast-cereals, en:oatmeal.',
+                        )
+                      }
+                    >
+                      <div className="flex flex-wrap gap-1.5">
+                        {splitTags(product.categories ?? '').map((value) => (
+                          <span
+                            key={value}
+                            className="rounded-full border border-border bg-card px-2.5 py-0.5 text-xs text-foreground"
+                          >
+                            {value}
+                          </span>
+                        ))}
+                      </div>
+                    </EditableFieldTrigger>
                   </section>
                 )}
 
-                <ProductLabels product={product} />
+                <ProductLabels
+                  product={product}
+                  isEditMode={isEditMode}
+                  onEditField={(key) =>
+                    openFieldEditor(
+                      key,
+                      'Labels',
+                      'textarea',
+                      'Use OFF tag format (comma-separated), e.g. en:organic, en:no-added-sugar.',
+                    )
+                  }
+                />
                 <ProductOrigins product={product} />
                 <ProductPackaging product={product} />
 
                 <ProductHistory product={product} />
               </div>
             </div>
+
+            {!isEditMode && (
+              <div className="pt-2">
+                <Button
+                  type="button"
+                  className="w-full"
+                  variant="outline"
+                  onClick={startEditMode}
+                >
+                  <Settings2 className="size-4" />
+                  Edit mode
+                </Button>
+              </div>
+            )}
           </article>
         )}
       </main>
+
+      <Dialog
+        open={Boolean(editorState)}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeEditor()
+          }
+        }}
+      >
+        {editorState && (
+          <DialogContent aria-describedby={undefined}>
+            <DialogHeader>
+              <DialogTitle>Edit {editorState.label}</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-2">
+              {editorState.kind === 'textarea' ? (
+                <Textarea
+                  id="product-field-editor"
+                  value={editorValue}
+                  onChange={(event) => setEditorValue(event.target.value)}
+                  rows={6}
+                  placeholder={`Enter ${editorState.label.toLowerCase()}…`}
+                />
+              ) : (
+                <Input
+                  id="product-field-editor"
+                  type={editorState.kind === 'number' ? 'number' : 'text'}
+                  step={editorState.kind === 'number' ? 'any' : undefined}
+                  value={editorValue}
+                  onChange={(event) => setEditorValue(event.target.value)}
+                  placeholder={`Enter ${editorState.label.toLowerCase()}…`}
+                />
+              )}
+            </div>
+
+            <DialogFooter className="-mx-6 -mb-6 mt-2 border-t border-border px-6 pb-6 pt-4">
+              <Button type="button" variant="outline" onClick={closeEditor}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={saveEditorChanges}>
+                Save
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
   )
 }
