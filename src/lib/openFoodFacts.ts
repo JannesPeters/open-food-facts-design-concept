@@ -871,3 +871,260 @@ export async function searchProducts(
 
   throw buildUnavailableError(result)
 }
+
+interface OpenFoodFactsSessionResponse {
+  status?: number | string
+  status_verbose?: string
+  user_id?: string
+}
+
+interface OpenFoodFactsWriteResponse {
+  status?: number | string
+  status_verbose?: string
+}
+
+export interface OpenFoodFactsAuthCredentials {
+  username: string
+  password: string
+}
+
+export interface ProductContributionInput {
+  barcode: string
+  productName: string
+  brands?: string
+  quantity?: string
+  lc?: string
+  comment?: string
+}
+
+const getSessionCandidates = () =>
+  import.meta.env.DEV
+    ? [`${openFoodFactsDevProxyCgiPrefix}/session.pl`]
+    : [`${openFoodFactsOrigin}/cgi/session.pl`]
+
+const getContributionCandidates = () =>
+  import.meta.env.DEV
+    ? [`${openFoodFactsDevProxyCgiPrefix}/product_jqm2.pl`]
+    : [`${openFoodFactsOrigin}/cgi/product_jqm2.pl`]
+
+const isSuccessStatus = (value: number | string | undefined) =>
+  value === 1 || value === '1'
+
+const buildFormBody = (fields: Record<string, string | undefined>) => {
+  const form = new URLSearchParams()
+  Object.entries(fields).forEach(([key, value]) => {
+    if (value && value.trim()) {
+      form.set(key, value)
+    }
+  })
+  return form.toString()
+}
+
+const parseOffHtmlError = (html: string): string | null => {
+  if (/incorrect user name or password/iu.test(html)) {
+    return 'Incorrect username or password. Use your OFF username (not email).'
+  }
+  if (/temporarily unavailable|unusually high demand|service unavailable/iu.test(html)) {
+    return 'Open Food Facts is temporarily unavailable. Please try again shortly.'
+  }
+  return null
+}
+
+export async function signInOpenFoodFacts(
+  credentials: OpenFoodFactsAuthCredentials,
+): Promise<string> {
+  const username = credentials.username.trim()
+  const password = credentials.password
+  if (!username || !password) {
+    throw new Error('Username and password are required.')
+  }
+
+  let lastFailure: string | null = null
+
+  for (const url of getSessionCandidates()) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: buildFormBody({ jqm: '1', user_id: username, password }),
+      })
+
+      if (!response.ok) {
+        const text = await response.text()
+        const parsedError = parseOffHtmlError(text)
+        if (parsedError) {
+          throw new Error(parsedError)
+        }
+        lastFailure = `Open Food Facts sign-in failed (HTTP ${response.status}).`
+        continue
+      }
+
+      const rawPayload = await response.text()
+      let payload: OpenFoodFactsSessionResponse | null = null
+      try {
+        payload = JSON.parse(rawPayload) as OpenFoodFactsSessionResponse
+      } catch {
+        const parsedError = parseOffHtmlError(rawPayload)
+        if (parsedError) {
+          throw new Error(parsedError)
+        }
+      }
+
+      if (!payload) {
+        lastFailure = 'Open Food Facts sign-in failed.'
+        continue
+      }
+
+      if (payload.user_id?.trim() || isSuccessStatus(payload.status)) {
+        return payload.user_id?.trim() || username
+      }
+
+      if (payload.status_verbose?.toLowerCase().includes('incorrect')) {
+        throw new Error('Incorrect username or password.')
+      }
+
+      lastFailure = payload.status_verbose ?? 'Sign-in failed.'
+    } catch (error) {
+      if (error instanceof Error && /incorrect username or password/iu.test(error.message)) {
+        throw error
+      }
+      lastFailure = error instanceof Error ? error.message : 'Sign-in failed.'
+    }
+  }
+
+  throw new Error(lastFailure ?? 'Open Food Facts sign-in is currently unavailable.')
+}
+
+export interface OpenFoodFactsAccount {
+  name?: string
+  email?: string
+  country?: string
+}
+
+const getAccountCandidates = () =>
+  import.meta.env.DEV
+    ? [`${openFoodFactsDevProxyCgiPrefix}/user.pl`]
+    : [`${openFoodFactsOrigin}/cgi/user.pl`]
+
+const extractInputValue = (html: string, field: string): string | undefined => {
+  const tag = html.match(
+    new RegExp(`<input[^>]*\\bname\\s*=\\s*["']${field}["'][^>]*>`, 'iu'),
+  )?.[0]
+  const value = tag?.match(/\bvalue\s*=\s*["']([^"']*)["']/iu)?.[1]
+  return value?.trim() || undefined
+}
+
+const extractSelectedCountry = (html: string): string | undefined => {
+  const select = html.match(
+    /<select[^>]*\bname\s*=\s*["']country["'][^>]*>([\s\S]*?)<\/select>/iu,
+  )?.[1]
+  if (!select) {
+    return undefined
+  }
+  const selected = select.match(
+    /<option[^>]*\bselected\b[^>]*>([^<]*)<\/option>/iu,
+  )?.[1]
+  return selected?.trim() || undefined
+}
+
+export async function fetchOpenFoodFactsAccount(
+  credentials: OpenFoodFactsAuthCredentials,
+): Promise<OpenFoodFactsAccount | null> {
+  const username = credentials.username.trim()
+  const password = credentials.password
+  if (!username || !password) {
+    return null
+  }
+
+  for (const url of getAccountCandidates()) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: buildFormBody({
+          type: 'edit',
+          userid: username,
+          user_id: username,
+          password,
+        }),
+      })
+
+      if (!response.ok) {
+        continue
+      }
+
+      const html = await response.text()
+      const account: OpenFoodFactsAccount = {
+        name: extractInputValue(html, 'name'),
+        email: extractInputValue(html, 'email'),
+        country: extractSelectedCountry(html),
+      }
+
+      if (account.name || account.email || account.country) {
+        return account
+      }
+    } catch {
+      // Ignore and try the next candidate; profile details are best-effort.
+    }
+  }
+
+  return null
+}
+
+export async function submitProductContribution(
+  input: ProductContributionInput,
+  credentials: OpenFoodFactsAuthCredentials,
+): Promise<void> {
+  const barcode = input.barcode.trim()
+  const productName = input.productName.trim()
+  const username = credentials.username.trim()
+  const password = credentials.password
+
+  if (!barcode || !productName || !username || !password) {
+    throw new Error('Barcode, product name, username, and password are required.')
+  }
+
+  let lastFailure: string | null = null
+
+  for (const url of getContributionCandidates()) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: buildFormBody({
+          code: barcode,
+          lc: input.lc ?? 'en',
+          user_id: username,
+          password,
+          product_name: productName,
+          brands: input.brands,
+          quantity: input.quantity,
+          comment: input.comment,
+          app_name: 'OpenFoodFactsDesignConcept',
+          app_version: '0.0',
+          app_uuid: `web-${username}`,
+        }),
+      })
+
+      if (!response.ok) {
+        lastFailure = `HTTP ${response.status}`
+        continue
+      }
+
+      const payload = (await response.json()) as OpenFoodFactsWriteResponse
+      if (isSuccessStatus(payload.status)) {
+        return
+      }
+
+      lastFailure = payload.status_verbose ?? 'Contribution could not be saved.'
+    } catch (error) {
+      lastFailure =
+        error instanceof Error ? error.message : 'Contribution could not be saved.'
+    }
+  }
+
+  throw new Error(lastFailure ?? 'Open Food Facts contribution is currently unavailable.')
+}
