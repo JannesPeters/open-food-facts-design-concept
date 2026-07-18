@@ -14,6 +14,7 @@ Open Food Facts holds one of the largest open databases of food products in the 
 - **Product pages** with a clear, scannable layout for ingredients, nutrition, quantity, serving size, allergens, categories, and labels
 - **Scoring at a glance** — Nutri-Score, NOVA group, and Eco-Score presented visually so quality and impact are obvious
 - **In-site barcode scanning** — use the device camera to scan a product barcode and open its page directly, with manual barcode entry as a fallback
+- **Community price insights** — show recent crowdsourced Open Prices data (latest observed price, range, locations, and contributors) on product pages
 - **Fresh, accessible design** — a modern visual language that is fast, readable, and mobile-first
 - **Graceful handling** of missing or incomplete product data
 
@@ -82,6 +83,8 @@ No GitHub Actions workflow or Vercel secrets/variables are required in this repo
 ## Data & attribution
 
 Product data comes from [Open Food Facts](https://world.openfoodfacts.org/), a collaborative, open database made available under the Open Database License. This project is an independent design concept and is not affiliated with or endorsed by Open Food Facts.
+
+Price data comes from [Open Prices](https://prices.openfoodfacts.org/), the Open Food Facts community project for crowdsourced retail prices.
 
 ### Working with the Open Food Facts API
 

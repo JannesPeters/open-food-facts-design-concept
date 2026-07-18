@@ -2,7 +2,9 @@ import type {
   NutrientLevel,
   NutrientLevelValue,
   NutrientValue,
+  PriceRecord,
   ProductDetails,
+  ProductPriceSummary,
   ProductSearchResponse,
   ProductSearchResult,
 } from '../types'
@@ -46,6 +48,8 @@ const requestedFields = [
 const openFoodFactsOrigin = 'https://world.openfoodfacts.org'
 const openFoodFactsDevProxyPrefix = '/__openfoodfacts'
 const openFoodFactsDevProxyCgiPrefix = '/__off-cgi'
+const openPricesOrigin = 'https://prices.openfoodfacts.org'
+const openPricesDevProxyPrefix = '/__openprices'
 
 const getProductLookupPath = (barcode: string) => {
   const pathname = `/api/v2/product/${encodeURIComponent(barcode)}.json`
@@ -64,6 +68,14 @@ const getLookupCandidates = (barcode: string) =>
   import.meta.env.DEV
     ? [getDevProxyProductLookupUrl(barcode), getDirectProductLookupUrl(barcode)]
     : [getDirectProductLookupUrl(barcode)]
+
+const getOpenPricesCandidates = (pathname: string) =>
+  import.meta.env.DEV
+    ? [
+        `${openPricesDevProxyPrefix}${pathname.replace(/^\/api\/v1/u, '')}`,
+        `${openPricesOrigin}${pathname}`,
+      ]
+    : [`${openPricesOrigin}${pathname}`]
 
 const importantNutrients: Array<{
   id: string
@@ -119,6 +131,41 @@ interface OpenFoodFactsResponse {
   code?: string
   product?: OpenFoodFactsProduct
   status: 0 | 1
+}
+
+interface OpenPricesProductResponse {
+  code?: string
+  price_count?: number | string
+  price_currency_count?: number | string
+  location_count?: number | string
+  user_count?: number | string
+}
+
+interface OpenPricesPriceLocation {
+  osm_name?: string | null
+  osm_address_city?: string | null
+  osm_address_country?: string | null
+}
+
+interface OpenPricesPrice {
+  id?: number
+  price?: number | string | null
+  price_without_discount?: number | string | null
+  currency?: string | null
+  date?: string | null
+  price_is_discounted?: boolean
+  location?: OpenPricesPriceLocation
+}
+
+interface OpenPricesListResponse {
+  items?: OpenPricesPrice[]
+}
+
+interface OpenPricesStatsResponse {
+  price__count?: number | string
+  price__min?: number | string
+  price__max?: number | string
+  price__avg?: number | string
 }
 
 const readNumber = (value: number | string | undefined) => {
@@ -289,6 +336,162 @@ const normalizeNovaGroup = (value: number | string | undefined): number | null =
   return group !== null && group >= 1 && group <= 4 ? group : null
 }
 
+const normalizeCurrency = (value: string | null | undefined): string | null => {
+  const code = value?.trim().toUpperCase()
+  return code && /^[A-Z]{3}$/u.test(code) ? code : null
+}
+
+const buildOpenPricesSummary = async (
+  barcode: string,
+): Promise<ProductPriceSummary | null> => {
+  const productResult = await fetchJsonWithRetry<OpenPricesProductResponse>(
+    getOpenPricesCandidates(`/api/v1/products/code/${encodeURIComponent(barcode)}`),
+  )
+
+  if (!productResult.ok || !productResult.data) {
+    return null
+  }
+
+  const priceCount = readNumber(productResult.data.price_count) ?? 0
+  if (priceCount <= 0) {
+    return null
+  }
+
+  const currencyCount = readNumber(productResult.data.price_currency_count) ?? 0
+  const locationCount = readNumber(productResult.data.location_count) ?? 0
+  const contributorCount = readNumber(productResult.data.user_count) ?? 0
+
+  const latestResult = await fetchJsonWithRetry<OpenPricesListResponse>(
+    getOpenPricesCandidates(
+      `/api/v1/prices?product_code=${encodeURIComponent(barcode)}&order_by=-date&size=1`,
+    ),
+  )
+
+  const latest = latestResult.ok
+    ? latestResult.data?.items?.[0]
+    : undefined
+
+  const latestCurrency = normalizeCurrency(latest?.currency)
+  const latestPrice =
+    latest && latest.price !== null && latest.price !== undefined
+      ? readNumber(latest.price)
+      : null
+  const latestDate = cleanText(latest?.date ?? undefined)
+  const latestLocation =
+    cleanText(latest?.location?.osm_name ?? undefined) ??
+    cleanText(latest?.location?.osm_address_city ?? undefined) ??
+    cleanText(latest?.location?.osm_address_country ?? undefined)
+  const latestIsDiscounted =
+    typeof latest?.price_is_discounted === 'boolean'
+      ? latest.price_is_discounted
+      : null
+
+  let priceMin: number | null = null
+  let priceMax: number | null = null
+  let priceAverage: number | null = null
+
+  if (latestCurrency) {
+    const statsResult = await fetchJsonWithRetry<OpenPricesStatsResponse>(
+      getOpenPricesCandidates(
+        `/api/v1/prices/stats?product_code=${encodeURIComponent(barcode)}&currency=${encodeURIComponent(latestCurrency)}`,
+      ),
+    )
+
+    if (statsResult.ok && statsResult.data) {
+      priceMin = readNumber(statsResult.data.price__min)
+      priceMax = readNumber(statsResult.data.price__max)
+      priceAverage = readNumber(statsResult.data.price__avg)
+    }
+  }
+
+  return {
+    barcode,
+    priceCount,
+    currencyCount,
+    locationCount,
+    contributorCount,
+    latestPrice,
+    latestCurrency,
+    latestDate,
+    latestLocation,
+    latestIsDiscounted,
+    priceMin,
+    priceMax,
+    priceAverage,
+    statsCurrency: latestCurrency,
+  }
+}
+
+interface OpenPricesPageResponse {
+  items?: OpenPricesPrice[]
+  page?: number
+  pages?: number
+}
+
+const mapPriceRecord = (price: OpenPricesPrice, index: number): PriceRecord => ({
+  id: typeof price.id === 'number' ? price.id : index,
+  price:
+    price.price !== null && price.price !== undefined
+      ? readNumber(price.price)
+      : null,
+  priceWithoutDiscount:
+    price.price_without_discount !== null &&
+    price.price_without_discount !== undefined
+      ? readNumber(price.price_without_discount)
+      : null,
+  isDiscounted: price.price_is_discounted === true,
+  currency: normalizeCurrency(price.currency),
+  date: cleanText(price.date ?? undefined),
+  locationName: cleanText(price.location?.osm_name ?? undefined),
+  locationCity: cleanText(price.location?.osm_address_city ?? undefined),
+  locationCountry: cleanText(price.location?.osm_address_country ?? undefined),
+})
+
+export async function fetchPriceHistory(
+  barcode: string,
+): Promise<PriceRecord[]> {
+  const cacheKey = `prices:${barcode}`
+  const cached = readCache<PriceRecord[]>(cacheKey)
+  if (cached && isFresh(cached)) {
+    return cached.value
+  }
+
+  const pageSize = 100
+  const maxPages = 5
+  const records: PriceRecord[] = []
+
+  for (let page = 1; page <= maxPages; page += 1) {
+    const result = await fetchJsonWithRetry<OpenPricesPageResponse>(
+      getOpenPricesCandidates(
+        `/api/v1/prices?product_code=${encodeURIComponent(barcode)}&order_by=-date&page=${page}&size=${pageSize}`,
+      ),
+    )
+
+    if (!result.ok || !result.data) {
+      if (records.length > 0) {
+        break
+      }
+      if (cached) {
+        return cached.value
+      }
+      throw buildUnavailableError(result)
+    }
+
+    const items = Array.isArray(result.data.items) ? result.data.items : []
+    items.forEach((item, index) => {
+      records.push(mapPriceRecord(item, records.length + index))
+    })
+
+    const totalPages = readNumber(result.data.pages) ?? page
+    if (items.length < pageSize || page >= totalPages) {
+      break
+    }
+  }
+
+  writeCache(cacheKey, records)
+  return records
+}
+
 const buildMissingProductDetails = (barcode: string): ProductDetails => ({
   barcode,
   name: null,
@@ -322,6 +525,7 @@ const buildMissingProductDetails = (barcode: string): ProductDetails => ({
   editorCount: 0,
   lastCheckedAt: null,
   lastChecker: null,
+  priceSummary: null,
 })
 
 const mapProductDetails = (
@@ -370,6 +574,7 @@ const mapProductDetails = (
       : 0,
     lastCheckedAt: readNumber(product?.last_checked_t),
     lastChecker: cleanText(product?.last_checker),
+    priceSummary: null,
   }
 }
 
@@ -513,6 +718,12 @@ export async function fetchProductDetails(
   const cacheKey = `product:${barcode}`
   const cached = readCache<ProductDetails>(cacheKey)
   if (cached && isFresh(cached)) {
+    if (cached.value.isProductFound && cached.value.priceSummary === null) {
+      const priceSummary = await buildOpenPricesSummary(cached.value.barcode)
+      const enriched: ProductDetails = { ...cached.value, priceSummary }
+      writeCache(cacheKey, enriched)
+      return enriched
+    }
     return cached.value
   }
 
@@ -522,6 +733,9 @@ export async function fetchProductDetails(
 
   if (result.ok && result.data) {
     const details = mapProductDetails(barcode, result.data)
+    if (details.isProductFound) {
+      details.priceSummary = await buildOpenPricesSummary(details.barcode)
+    }
     writeCache(cacheKey, details)
     return details
   }

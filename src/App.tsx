@@ -4,6 +4,7 @@ import ScrollToTop from '@/components/ScrollToTop'
 
 const HomePage = lazy(() => import('./HomePage'))
 const ProductPage = lazy(() => import('./ProductPage'))
+const PricesPage = lazy(() => import('./PricesPage'))
 const ProducersPage = lazy(() => import('./ProducersPage'))
 const ProPage = lazy(() => import('./ProPage'))
 const ScannerPage = lazy(() => import('./ScannerPage'))
@@ -21,6 +22,7 @@ function App() {
           <Route path="/producers" element={<ProducersPage />} />
           <Route path="/pro" element={<ProPage />} />
           <Route path="/product/:barcode" element={<ProductPage />} />
+          <Route path="/product/:barcode/prices" element={<PricesPage />} />
         </Routes>
       </Suspense>
     </BrowserRouter>

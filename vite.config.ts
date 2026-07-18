@@ -76,6 +76,21 @@ export default defineConfig({
             },
           },
           {
+            urlPattern: /^https:\/\/prices\.openfoodfacts\.org\/api\/v1\/.*$/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'open-prices-api',
+              networkTimeoutSeconds: 5,
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24,
+              },
+            },
+          },
+          {
             urlPattern: /^https:\/\/images\.openfoodfacts\.org\/.*$/i,
             handler: 'CacheFirst',
             options: {
@@ -123,6 +138,16 @@ export default defineConfig({
             'OpenFoodFactsDesignConcept/0.0 (local dev; https://github.com/JannesPeters/open-food-facts-design-concept)',
         },
         rewrite: (path) => path.replace(/^\/__off-cgi/, '/cgi'),
+      },
+      '/__openprices': {
+        target: 'https://prices.openfoodfacts.org',
+        changeOrigin: true,
+        secure: true,
+        headers: {
+          'User-Agent':
+            'OpenFoodFactsDesignConcept/0.0 (local dev; https://github.com/JannesPeters/open-food-facts-design-concept)',
+        },
+        rewrite: (path) => path.replace(/^\/__openprices/, '/api/v1'),
       },
     },
   },

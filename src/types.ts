@@ -17,6 +17,35 @@ export interface NutrientLevel {
   unit: string
 }
 
+export interface ProductPriceSummary {
+  barcode: string
+  priceCount: number
+  currencyCount: number
+  locationCount: number
+  contributorCount: number
+  latestPrice: number | null
+  latestCurrency: string | null
+  latestDate: string | null
+  latestLocation: string | null
+  latestIsDiscounted: boolean | null
+  priceMin: number | null
+  priceMax: number | null
+  priceAverage: number | null
+  statsCurrency: string | null
+}
+
+export interface PriceRecord {
+  id: number
+  price: number | null
+  priceWithoutDiscount: number | null
+  isDiscounted: boolean
+  currency: string | null
+  date: string | null
+  locationName: string | null
+  locationCity: string | null
+  locationCountry: string | null
+}
+
 export interface ProductDetails {
   barcode: string
   name: string | null
@@ -50,6 +79,7 @@ export interface ProductDetails {
   editorCount: number
   lastCheckedAt: number | null
   lastChecker: string | null
+  priceSummary: ProductPriceSummary | null
 }
 
 export interface ProductSearchResult {
