@@ -6,6 +6,7 @@ import ScoreScale, { type ScoreSegment } from '@/components/ScoreScale'
 import SiteHeader from '@/components/SiteHeader'
 import { cn } from '@/lib/utils'
 import { fetchProductDetails } from '@/lib/openFoodFacts'
+import { recordRecentlyViewedProduct } from '@/lib/recentlyViewed'
 import {
   ecoScoreRating,
   novaRating,
@@ -490,6 +491,12 @@ function ProductPage() {
     void loadProduct(barcode)
   }, [barcode, loadProduct])
 
+  useEffect(() => {
+    if (status === 'success' && product?.isProductFound) {
+      recordRecentlyViewedProduct(product)
+    }
+  }, [product, status])
+
   const showImage = product?.imageUrl && !imageFailed
   const hasNutrients = product?.nutrients.some(
     (nutrient) => nutrient.value !== null || nutrient.text,
@@ -503,13 +510,9 @@ function ProductPage() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <SiteHeader />
+      <SiteHeader leading={<BackButton />} />
 
-      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
-        <div className="mb-6">
-          <BackButton />
-        </div>
-
+      <main className="mx-auto w-full max-w-5xl flex-1 px-6 pb-10 pt-6">
         {status === 'loading' && (
           <div className="grid gap-8 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-10">
             <div className="space-y-6">

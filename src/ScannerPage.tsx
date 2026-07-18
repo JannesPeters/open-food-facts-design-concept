@@ -7,10 +7,10 @@ import {
   NotFoundException,
   type Result,
 } from '@zxing/library'
-import { ArrowLeft, ScanLine } from 'lucide-react'
+import { ScanLine } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import SiteHeader from '@/components/SiteHeader'
+import SiteHeader, { HeaderBackButton } from '@/components/SiteHeader'
 import { cn } from '@/lib/utils'
 import { sanitizeBarcode } from '@/lib/scores'
 
@@ -600,21 +600,9 @@ function ScannerPage() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <SiteHeader trailing={null} />
+      <SiteHeader leading={<HeaderBackButton />} trailing={null} />
 
-      <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">
-        <div className="mb-8 space-y-2">
-          <Button asChild variant="ghost" size="sm" className="-ml-2">
-            <Link to="/">
-              <ArrowLeft className="size-4" />
-              Home
-            </Link>
-          </Button>
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-            Scan a barcode
-          </h1>
-        </div>
-
+      <main className="mx-auto w-full max-w-2xl flex-1 px-6 pb-10 pt-6">
         <div className="space-y-6">
           <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-xl border border-border bg-muted">
             <video
