@@ -8,6 +8,7 @@ import type {
   ProductSearchResponse,
   ProductSearchResult,
 } from '../types'
+import { editableNutrientFields } from './productContribution'
 
 const requestedFields = [
   'code',
@@ -76,21 +77,6 @@ const getOpenPricesCandidates = (pathname: string) =>
         `${openPricesOrigin}${pathname}`,
       ]
     : [`${openPricesOrigin}${pathname}`]
-
-const importantNutrients: Array<{
-  id: string
-  label: string
-  unit: string
-  indent?: boolean
-}> = [
-  { id: 'fat_100g', label: 'Fat', unit: 'g' },
-  { id: 'saturated-fat_100g', label: 'of which saturates', unit: 'g', indent: true },
-  { id: 'carbohydrates_100g', label: 'Carbohydrate', unit: 'g' },
-  { id: 'sugars_100g', label: 'of which sugars', unit: 'g', indent: true },
-  { id: 'fiber_100g', label: 'Fibre', unit: 'g' },
-  { id: 'proteins_100g', label: 'Protein', unit: 'g' },
-  { id: 'salt_100g', label: 'Salt', unit: 'g' },
-]
 
 interface OpenFoodFactsProduct {
   product_name?: string
@@ -211,7 +197,7 @@ const buildNutrients = (
   nutriments: Record<string, number | string | undefined> | undefined,
 ): NutrientValue[] => [
   buildEnergyRow(nutriments),
-  ...importantNutrients.map((nutrient) => ({
+  ...editableNutrientFields.map(({ offField: _offField, ...nutrient }) => ({
     ...nutrient,
     value:
       nutriments && nutrient.id in nutriments
@@ -890,9 +876,7 @@ export interface OpenFoodFactsAuthCredentials {
 
 export interface ProductContributionInput {
   barcode: string
-  productName: string
-  brands?: string
-  quantity?: string
+  fields: Record<string, string>
   lc?: string
   comment?: string
 }
@@ -913,11 +897,30 @@ const isSuccessStatus = (value: number | string | undefined) =>
 const buildFormBody = (fields: Record<string, string | undefined>) => {
   const form = new URLSearchParams()
   Object.entries(fields).forEach(([key, value]) => {
-    if (value && value.trim()) {
+    if (value !== undefined) {
       form.set(key, value)
     }
   })
   return form.toString()
+}
+
+export function buildProductContributionFormFields(
+  input: ProductContributionInput,
+  credentials: OpenFoodFactsAuthCredentials,
+): Record<string, string | undefined> {
+  const username = credentials.username.trim()
+
+  return {
+    code: input.barcode.trim(),
+    lc: input.lc ?? 'en',
+    user_id: username,
+    password: credentials.password,
+    ...input.fields,
+    comment: input.comment,
+    app_name: 'OpenFoodFactsDesignConcept',
+    app_version: '0.0',
+    app_uuid: `web-${username}`,
+  }
 }
 
 const parseOffHtmlError = (html: string): string | null => {
@@ -1078,12 +1081,15 @@ export async function submitProductContribution(
   credentials: OpenFoodFactsAuthCredentials,
 ): Promise<void> {
   const barcode = input.barcode.trim()
-  const productName = input.productName.trim()
   const username = credentials.username.trim()
   const password = credentials.password
 
-  if (!barcode || !productName || !username || !password) {
-    throw new Error('Barcode, product name, username, and password are required.')
+  if (!barcode || !username || !password) {
+    throw new Error('Barcode, username, and password are required.')
+  }
+
+  if (Object.keys(input.fields).length === 0) {
+    throw new Error('At least one changed field is required for submission.')
   }
 
   let lastFailure: string | null = null
@@ -1094,19 +1100,7 @@ export async function submitProductContribution(
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: buildFormBody({
-          code: barcode,
-          lc: input.lc ?? 'en',
-          user_id: username,
-          password,
-          product_name: productName,
-          brands: input.brands,
-          quantity: input.quantity,
-          comment: input.comment,
-          app_name: 'OpenFoodFactsDesignConcept',
-          app_version: '0.0',
-          app_uuid: `web-${username}`,
-        }),
+        body: buildFormBody(buildProductContributionFormFields(input, credentials)),
       })
 
       if (!response.ok) {
