@@ -1,4 +1,4 @@
-import { ArrowLeft, History, ImageOff, PackageSearch, ScanLine, Users } from 'lucide-react'
+import { ArrowLeft, ImageOff, PackageSearch, ScanLine } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -375,10 +375,7 @@ function ProductHistory({ product }: { product: ProductDetails }) {
 
   return (
     <section className="space-y-3">
-      <div className="flex items-center gap-2">
-        <History className="size-5 text-muted-foreground" aria-hidden />
-        <h2 className="text-lg font-semibold text-foreground">Change history</h2>
-      </div>
+      <h2 className="text-lg font-semibold text-foreground">Change history</h2>
       <ul className="space-y-1.5">
         {product.createdAt !== null && (
           <HistoryLine
@@ -396,7 +393,6 @@ function ProductHistory({ product }: { product: ProductDetails }) {
         )}
         {otherContributors > 0 && (
           <li className="flex items-center gap-1.5 text-sm">
-            <Users className="size-4 text-muted-foreground" aria-hidden />
             <span className="text-muted-foreground">
               Edited by{' '}
               <span className="font-medium text-foreground">
