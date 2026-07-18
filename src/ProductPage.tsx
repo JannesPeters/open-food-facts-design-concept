@@ -1,4 +1,4 @@
-import { ArrowLeft, ImageOff, PackageSearch, ScanLine } from 'lucide-react'
+import { ArrowLeft, ArrowRight, ImageOff, PackageSearch, ScanLine } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -17,7 +17,7 @@ import {
   sanitizeBarcode,
   splitTags,
 } from '@/lib/scores'
-import type { NutrientLevel, ProductDetails } from '@/types'
+import type { NutrientLevel, ProductDetails, ProductPriceSummary } from '@/types'
 
 function TagGroup({ label, values }: { label: string; values: string[] }) {
   if (values.length === 0) {
@@ -367,6 +367,73 @@ function ProductFacts({ product }: { product: ProductDetails }) {
         </div>
       )}
     </dl>
+  )
+}
+
+const formatPriceValue = (value: number, currency: string | null): string => {
+  if (!currency) {
+    return value.toFixed(2)
+  }
+
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 2,
+    }).format(value)
+  } catch {
+    return `${value.toFixed(2)} ${currency}`
+  }
+}
+
+function ProductPrices({ summary }: { summary: ProductPriceSummary }) {
+  const minPrice =
+    summary.priceMin !== null
+      ? formatPriceValue(summary.priceMin, summary.statsCurrency)
+      : null
+  const maxPrice =
+    summary.priceMax !== null
+      ? formatPriceValue(summary.priceMax, summary.statsCurrency)
+      : null
+
+  if (summary.priceCount <= 0) {
+    return null
+  }
+
+  const range =
+    minPrice && maxPrice
+      ? minPrice === maxPrice
+        ? minPrice
+        : `${minPrice} – ${maxPrice}`
+      : null
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="text-lg font-semibold text-foreground">
+          Community prices
+        </h2>
+        <Link
+          to={`/product/${summary.barcode}/prices`}
+          className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+        >
+          View more
+          <ArrowRight className="size-4" />
+        </Link>
+      </div>
+      <div className="rounded-xl border border-border bg-card p-4">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Price range
+        </p>
+        <p className="mt-1 text-base font-semibold text-foreground">
+          {range ?? '—'}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Crowdsourced from Open Prices ({summary.priceCount}{' '}
+          {summary.priceCount === 1 ? 'report' : 'reports'}).
+        </p>
+      </div>
+    </section>
   )
 }
 
@@ -741,6 +808,10 @@ function ProductPage() {
               <div className="min-w-0 space-y-10">
                 {product.nutrientLevels.length > 0 && (
                   <NutrientLevels levels={product.nutrientLevels} />
+                )}
+
+                {product.priceSummary && (
+                  <ProductPrices summary={product.priceSummary} />
                 )}
 
                 <section className="space-y-3">
