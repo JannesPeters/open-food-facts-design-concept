@@ -1,8 +1,9 @@
-import { ArrowLeft, ArrowRight, ImageOff, PackageSearch, ScanLine, Settings2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, ImageOff, LoaderCircle, PackageSearch, ScanLine, Settings2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Dialog,
   DialogContent,
@@ -15,8 +16,22 @@ import { Textarea } from '@/components/ui/textarea'
 import ScoreScale, { type ScoreSegment } from '@/components/ScoreScale'
 import SiteHeader from '@/components/SiteHeader'
 import { cn } from '@/lib/utils'
-import { fetchProductDetails } from '@/lib/openFoodFacts'
+import {
+  buildProductContributionFormFields,
+  fetchProductDetails,
+  submitProductContribution,
+  type ProductContributionInput,
+} from '@/lib/openFoodFacts'
+import {
+  buildChangedProductFields,
+  getEditableProductField,
+  isEditableNutrient,
+  normalizeEditableProductField,
+  type EditableProductFieldKey,
+  type ProductEditorKind,
+} from '@/lib/productContribution'
 import { recordRecentlyViewedProduct } from '@/lib/recentlyViewed'
+import { getSessionAuth, useSessionUser } from '@/lib/sessionUser'
 import {
   ecoScoreRating,
   novaRating,
@@ -34,18 +49,6 @@ import type {
   ProductPriceSummary,
 } from '@/types'
 
-type EditorKind = 'text' | 'textarea' | 'number'
-
-type EditableProductFieldKey =
-  | 'name'
-  | 'brands'
-  | 'quantity'
-  | 'servingSize'
-  | 'ingredients'
-  | 'allergens'
-  | 'categories'
-  | 'labels'
-
 type EditorTarget =
   | { type: 'field'; key: EditableProductFieldKey }
   | { type: 'nutrient'; index: number }
@@ -53,36 +56,9 @@ type EditorTarget =
 interface EditorState {
   target: EditorTarget
   label: string
-  kind: EditorKind
+  kind: ProductEditorKind
   value: string
   helpText?: string
-}
-
-const normalizeNullableText = (value: string): string | null => {
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
-
-const normalizeOffTagList = (value: string): string | null => {
-  const normalized = value
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0)
-    .map((entry) => {
-      const match = entry.match(/^([a-z]{2}):(.*)$/iu)
-      const prefix = match ? `${match[1].toLowerCase()}:` : ''
-      const rawLabel = match ? match[2] : entry
-      const slug = rawLabel
-        .trim()
-        .toLowerCase()
-        .replace(/[\s_]+/gu, '-')
-        .replace(/-+/gu, '-')
-        .replace(/^-+|-+$/gu, '')
-      return slug ? `${prefix}${slug}` : ''
-    })
-    .filter((entry) => entry.length > 0)
-
-  return normalized.length > 0 ? normalized.join(', ') : null
 }
 
 const cloneProductDetails = (product: ProductDetails): ProductDetails => ({
@@ -325,9 +301,6 @@ function ProductTags({
   isEditMode?: boolean
   onEditAllergens?: (
     key: 'allergens',
-    label: string,
-    kind: EditorKind,
-    helpText?: string,
   ) => void
 }) {
   if (
@@ -348,14 +321,7 @@ function ProductTags({
           {isEditMode ? (
             <EditableFieldTrigger
               isEditMode
-              onEdit={() =>
-                onEditAllergens?.(
-                  'allergens',
-                  'Allergens',
-                  'textarea',
-                  'Use OFF tag format (comma-separated), e.g. en:milk, en:soybeans.',
-                )
-              }
+              onEdit={() => onEditAllergens?.('allergens')}
             >
               <TagGroup
                 label="Allergens"
@@ -763,10 +729,19 @@ function BackButton() {
 }
 
 type Status = 'loading' | 'success' | 'error'
+type EditSubmitStatus = 'idle' | 'submitting' | 'success' | 'error'
+type SubmissionPreviewRow = { field: string; value: string }
+type PendingContributionSubmit = {
+  input: ProductContributionInput
+  credentials: { username: string; password: string }
+  changedRows: SubmissionPreviewRow[]
+  requestRows: SubmissionPreviewRow[]
+}
 
 function ProductPage() {
   const params = useParams<{ barcode: string }>()
   const barcode = sanitizeBarcode(params.barcode ?? '')
+  const sessionUser = useSessionUser()
 
   const [status, setStatus] = useState<Status>('loading')
   const [product, setProduct] = useState<ProductDetails | null>(null)
@@ -776,28 +751,28 @@ function ProductPage() {
   const [editSessionOriginal, setEditSessionOriginal] = useState<ProductDetails | null>(null)
   const [editorState, setEditorState] = useState<EditorState | null>(null)
   const [editorValue, setEditorValue] = useState('')
+  const [editSubmitStatus, setEditSubmitStatus] = useState<EditSubmitStatus>('idle')
+  const [editSubmitMessage, setEditSubmitMessage] = useState<string | null>(null)
+  const [pendingContributionSubmit, setPendingContributionSubmit] =
+    useState<PendingContributionSubmit | null>(null)
 
   const requestIdRef = useRef(0)
 
   const openFieldEditor = useCallback(
-    (
-      key: EditableProductFieldKey,
-      label: string,
-      kind: EditorKind = 'text',
-      helpText?: string,
-    ) => {
+    (key: EditableProductFieldKey) => {
       if (!isEditMode || !product) {
         return
       }
 
       const currentValue = product[key] ?? ''
+      const definition = getEditableProductField(key)
 
       setEditorState({
         target: { type: 'field', key },
-        label,
-        kind,
+        label: definition.label,
+        kind: definition.kind,
         value: currentValue,
-        helpText,
+        helpText: definition.helpText,
       })
       setEditorValue(currentValue)
     },
@@ -832,6 +807,9 @@ function ProductPage() {
     if (!product) {
       return
     }
+    setPendingContributionSubmit(null)
+    setEditSubmitStatus('idle')
+    setEditSubmitMessage(null)
     setEditSessionOriginal(cloneProductDetails(product))
     setIsEditMode(true)
   }, [product])
@@ -840,16 +818,110 @@ function ProductPage() {
     if (editSessionOriginal) {
       setProduct(cloneProductDetails(editSessionOriginal))
     }
+    setPendingContributionSubmit(null)
+    setEditSubmitStatus('idle')
+    setEditSubmitMessage(null)
     setIsEditMode(false)
     setEditSessionOriginal(null)
     closeEditor()
   }, [closeEditor, editSessionOriginal])
 
   const saveEditMode = useCallback(() => {
+    setPendingContributionSubmit(null)
+    setEditSubmitStatus('idle')
+    setEditSubmitMessage(null)
     setIsEditMode(false)
     setEditSessionOriginal(null)
     closeEditor()
   }, [closeEditor])
+
+  const openSubmitConfirmation = useCallback(() => {
+    if (!product) {
+      return
+    }
+
+    const auth = getSessionAuth()
+    if (!sessionUser || !auth) {
+      setEditSubmitStatus('error')
+      setEditSubmitMessage('Sign in to Open Food Facts before submitting changes.')
+      return
+    }
+
+    if (!editSessionOriginal) {
+      setEditSubmitStatus('error')
+      setEditSubmitMessage('Start edit mode before submitting to Open Food Facts.')
+      return
+    }
+
+    const fields = buildChangedProductFields(product, editSessionOriginal)
+    if (Object.keys(fields).length === 0) {
+      setEditSubmitStatus('error')
+      setEditSubmitMessage('No edited fields to submit yet.')
+      return
+    }
+
+    const input: ProductContributionInput = {
+      barcode: product.barcode,
+      fields,
+    }
+    const credentials = {
+      username: auth.username,
+      password: auth.password,
+    }
+    const previewRows = Object.entries(
+      buildProductContributionFormFields(input, credentials),
+    ).flatMap(([field, value]) => {
+      if (value === undefined) {
+        return []
+      }
+      return [{
+        field,
+        value: field === 'password' ? '••••••••' : value || '(empty)',
+      }]
+    })
+    const changedFieldNames = new Set(Object.keys(fields))
+    const changedRows = previewRows.filter(({ field }) => changedFieldNames.has(field))
+    const requestRows = previewRows.filter(({ field }) => !changedFieldNames.has(field))
+
+    setEditSubmitStatus('idle')
+    setEditSubmitMessage(null)
+    setPendingContributionSubmit({
+      input,
+      credentials,
+      changedRows,
+      requestRows,
+    })
+  }, [editSessionOriginal, product, sessionUser])
+
+  const confirmSubmitEditMode = useCallback(async () => {
+    if (!pendingContributionSubmit) {
+      return
+    }
+
+    setEditSubmitStatus('submitting')
+    setEditSubmitMessage(null)
+    setPendingContributionSubmit(null)
+
+    try {
+      await submitProductContribution(
+        pendingContributionSubmit.input,
+        pendingContributionSubmit.credentials,
+      )
+
+      setEditSubmitStatus('success')
+      setEditSubmitMessage('Changes were submitted to Open Food Facts.')
+      setIsEditMode(false)
+      setEditSessionOriginal(null)
+      closeEditor()
+    } catch (error) {
+      setEditSubmitStatus('error')
+      setEditSubmitMessage(
+        error instanceof Error
+          ? error.message
+          : 'Could not submit changes to Open Food Facts.',
+      )
+    }
+  }, [closeEditor, pendingContributionSubmit])
 
   const saveEditorChanges = useCallback(() => {
     if (!editorState) {
@@ -864,13 +936,7 @@ function ProductPage() {
       if (editorState.target.type === 'field') {
         const next = { ...current }
         const { key } = editorState.target
-
-        if (key === 'categories' || key === 'labels' || key === 'allergens') {
-          next[key] = normalizeOffTagList(editorValue)
-          return next
-        }
-
-        next[key] = normalizeNullableText(editorValue)
+        next[key] = normalizeEditableProductField(key, editorValue)
         return next
       }
 
@@ -919,6 +985,9 @@ function ProductPage() {
         return
       }
       setProduct(details)
+      setPendingContributionSubmit(null)
+      setEditSubmitStatus('idle')
+      setEditSubmitMessage(null)
       setIsEditMode(false)
       setEditSessionOriginal(null)
       closeEditor()
@@ -934,7 +1003,7 @@ function ProductPage() {
       )
       setStatus('error')
     }
-  }, [])
+  }, [closeEditor])
 
   useEffect(() => {
     void loadProduct(barcode)
@@ -982,15 +1051,35 @@ function ProductPage() {
             </Button>
           }
           trailing={
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"
-              onClick={saveEditMode}
-            >
-              Save
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"
+                onClick={saveEditMode}
+                disabled={editSubmitStatus === 'submitting'}
+              >
+                Save
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"
+                onClick={openSubmitConfirmation}
+                disabled={editSubmitStatus === 'submitting'}
+              >
+                {editSubmitStatus === 'submitting' ? (
+                  <>
+                    <LoaderCircle className="size-4 animate-spin" />
+                    Submit
+                  </>
+                ) : (
+                  'Submit'
+                )}
+              </Button>
+            </div>
           }
         />
       ) : (
@@ -998,6 +1087,14 @@ function ProductPage() {
       )}
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-6 pb-10 pt-6">
+        {editSubmitMessage && (isEditMode || editSubmitStatus === 'success') && (
+          <Alert
+            variant={editSubmitStatus === 'success' ? 'success' : 'destructive'}
+            className="mb-4"
+          >
+            <AlertDescription>{editSubmitMessage}</AlertDescription>
+          </Alert>
+        )}
         {status === 'loading' && (
           <div className="grid gap-8 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-10">
             <div className="space-y-6">
@@ -1074,9 +1171,7 @@ function ProductPage() {
                     </p>
                     <EditableFieldTrigger
                       isEditMode={isEditMode}
-                      onEdit={() =>
-                        openFieldEditor('name', 'Product name', 'text')
-                      }
+                      onEdit={() => openFieldEditor('name')}
                     >
                       <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
                         {product.name ?? 'Unnamed product'}
@@ -1085,7 +1180,7 @@ function ProductPage() {
                     {(product.brands || isEditMode) && (
                       <EditableFieldTrigger
                         isEditMode={isEditMode}
-                        onEdit={() => openFieldEditor('brands', 'Brands', 'text')}
+                        onEdit={() => openFieldEditor('brands')}
                       >
                         <p className="text-sm text-muted-foreground">
                           {product.brands ?? 'Add brands'}
@@ -1104,27 +1199,14 @@ function ProductPage() {
                 <ProductTags
                   product={product}
                   isEditMode={isEditMode}
-                  onEditAllergens={(key, label, kind, helpText) =>
-                    openFieldEditor(
-                      key,
-                      label,
-                      kind,
-                      helpText,
-                    )
-                  }
+                  onEditAllergens={openFieldEditor}
                 />
               )}
 
               <ProductFacts
                 product={product}
                 isEditMode={isEditMode}
-                onEditField={(key) =>
-                  openFieldEditor(
-                    key,
-                    key === 'quantity' ? 'Quantity' : 'Serving size',
-                    'text',
-                  )
-                }
+                onEditField={openFieldEditor}
               />
             </div>
 
@@ -1151,7 +1233,7 @@ function ProductPage() {
                   </p>
                   <EditableFieldTrigger
                     isEditMode={isEditMode}
-                    onEdit={() => openFieldEditor('name', 'Product name', 'text')}
+                    onEdit={() => openFieldEditor('name')}
                   >
                     <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                       {product.name ?? 'Unnamed product'}
@@ -1160,7 +1242,7 @@ function ProductPage() {
                   {(product.brands || isEditMode) && (
                     <EditableFieldTrigger
                       isEditMode={isEditMode}
-                      onEdit={() => openFieldEditor('brands', 'Brands', 'text')}
+                      onEdit={() => openFieldEditor('brands')}
                     >
                       <p className="text-sm text-muted-foreground">
                         {product.brands ?? 'Add brands'}
@@ -1173,13 +1255,7 @@ function ProductPage() {
                 <ProductFacts
                   product={product}
                   isEditMode={isEditMode}
-                  onEditField={(key) =>
-                    openFieldEditor(
-                      key,
-                      key === 'quantity' ? 'Quantity' : 'Serving size',
-                      'text',
-                    )
-                  }
+                  onEditField={openFieldEditor}
                 />
 
                 {hasProductTags && (
@@ -1187,14 +1263,7 @@ function ProductPage() {
                     <ProductTags
                       product={product}
                       isEditMode={isEditMode}
-                      onEditAllergens={(key, label, kind, helpText) =>
-                        openFieldEditor(
-                          key,
-                          label,
-                          kind,
-                          helpText,
-                        )
-                      }
+                      onEditAllergens={openFieldEditor}
                     />
                   </div>
                 )}
@@ -1215,9 +1284,7 @@ function ProductPage() {
                   </h2>
                   <EditableFieldTrigger
                     isEditMode={isEditMode}
-                    onEdit={() =>
-                      openFieldEditor('ingredients', 'Ingredients', 'textarea')
-                    }
+                    onEdit={() => openFieldEditor('ingredients')}
                   >
                     <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
                       {product.ingredients ??
@@ -1245,7 +1312,8 @@ function ProductPage() {
                         </thead>
                         <tbody>
                           {product.nutrients.map((nutrient, nutrientIndex) => {
-                            const rowEditable = isEditMode && nutrient.id !== 'energy'
+                            const rowEditable =
+                              isEditMode && isEditableNutrient(nutrient.id)
 
                             return (
                               <tr
@@ -1299,14 +1367,7 @@ function ProductPage() {
                     </h2>
                     <EditableFieldTrigger
                       isEditMode={isEditMode}
-                      onEdit={() =>
-                        openFieldEditor(
-                          'categories',
-                          'Categories',
-                          'textarea',
-                          'Use OFF tag format (comma-separated), e.g. en:breakfast-cereals, en:oatmeal.',
-                        )
-                      }
+                      onEdit={() => openFieldEditor('categories')}
                     >
                       <div className="flex flex-wrap gap-1.5">
                         {splitTags(product.categories ?? '').map((value) => (
@@ -1325,14 +1386,7 @@ function ProductPage() {
                 <ProductLabels
                   product={product}
                   isEditMode={isEditMode}
-                  onEditField={(key) =>
-                    openFieldEditor(
-                      key,
-                      'Labels',
-                      'textarea',
-                      'Use OFF tag format (comma-separated), e.g. en:organic, en:no-added-sugar.',
-                    )
-                  }
+                  onEditField={openFieldEditor}
                 />
                 <ProductOrigins product={product} />
                 <ProductPackaging product={product} />
@@ -1399,6 +1453,96 @@ function ProductPage() {
               </Button>
               <Button type="button" onClick={saveEditorChanges}>
                 Save
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
+
+      <Dialog
+        open={Boolean(pendingContributionSubmit)}
+        onOpenChange={(open) => {
+          if (!open && editSubmitStatus !== 'submitting') {
+            setPendingContributionSubmit(null)
+          }
+        }}
+      >
+        {pendingContributionSubmit && (
+          <DialogContent aria-describedby={undefined} className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Confirm submission to Open Food Facts</DialogTitle>
+            </DialogHeader>
+
+            <p className="text-sm text-muted-foreground">
+              Review the product changes and required request details that will
+              be sent to OFF.
+            </p>
+
+            <div className="max-h-[50vh] space-y-4 overflow-y-auto">
+              {[
+                {
+                  title: 'Product changes',
+                  rows: pendingContributionSubmit.changedRows,
+                },
+                {
+                  title: 'Required request details',
+                  rows: pendingContributionSubmit.requestRows,
+                },
+              ].map(({ title, rows }) => (
+                <section key={title} className="space-y-2">
+                  <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+                  <div className="overflow-hidden rounded-lg border border-border">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-muted/70">
+                        <tr>
+                          <th className="border-b border-border px-3 py-2 font-medium text-foreground">
+                            Field
+                          </th>
+                          <th className="border-b border-border px-3 py-2 font-medium text-foreground">
+                            Value
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map(({ field, value }) => (
+                          <tr key={field}>
+                            <th className="w-52 border-b border-border px-3 py-2 font-mono text-xs font-medium text-foreground">
+                              {field}
+                            </th>
+                            <td className="break-words border-b border-border px-3 py-2 text-foreground">
+                              {value}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              ))}
+            </div>
+
+            <DialogFooter className="-mx-6 -mb-6 mt-2 border-t border-border px-6 pb-6 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPendingContributionSubmit(null)}
+                disabled={editSubmitStatus === 'submitting'}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void confirmSubmitEditMode()}
+                disabled={editSubmitStatus === 'submitting'}
+              >
+                {editSubmitStatus === 'submitting' ? (
+                  <>
+                    <LoaderCircle className="size-4 animate-spin" />
+                    Submitting…
+                  </>
+                ) : (
+                  'Submit to OFF'
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
