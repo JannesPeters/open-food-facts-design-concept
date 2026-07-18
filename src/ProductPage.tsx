@@ -286,6 +286,138 @@ function ProductFacts({ product }: { product: ProductDetails }) {
   )
 }
 
+function formatRelativeTime(timestamp: number | null): string | null {
+  if (timestamp === null) {
+    return null
+  }
+
+  const then = timestamp * 1000
+  const diffMs = Date.now() - then
+  const absSeconds = Math.round(Math.abs(diffMs) / 1000)
+
+  const units: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+    ['year', 60 * 60 * 24 * 365],
+    ['month', 60 * 60 * 24 * 30],
+    ['week', 60 * 60 * 24 * 7],
+    ['day', 60 * 60 * 24],
+    ['hour', 60 * 60],
+    ['minute', 60],
+  ]
+
+  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+
+  for (const [unit, seconds] of units) {
+    if (absSeconds >= seconds) {
+      const value = Math.round(diffMs / 1000 / seconds) * -1
+      return formatter.format(value, unit)
+    }
+  }
+
+  return formatter.format(0, 'minute')
+}
+
+function formatAbsoluteDate(timestamp: number | null): string | null {
+  if (timestamp === null) {
+    return null
+  }
+  return new Date(timestamp * 1000).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+
+function HistoryLine({
+  label,
+  editor,
+  timestamp,
+}: {
+  label: string
+  editor: string | null
+  timestamp: number | null
+}) {
+  const relative = formatRelativeTime(timestamp)
+  const absolute = formatAbsoluteDate(timestamp)
+
+  return (
+    <li className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      {relative ? (
+        <time className="font-medium text-foreground" title={absolute ?? undefined}>
+          {relative}
+        </time>
+      ) : (
+        <span className="font-medium text-foreground">at an unknown time</span>
+      )}
+      {editor && (
+        <>
+          <span className="text-muted-foreground">by</span>
+          <span className="font-medium text-foreground">{editor}</span>
+        </>
+      )}
+    </li>
+  )
+}
+
+function ProductHistory({ product }: { product: ProductDetails }) {
+  const hasProvenance =
+    product.createdAt !== null ||
+    product.lastModifiedAt !== null ||
+    product.lastCheckedAt !== null
+
+  if (!hasProvenance) {
+    return null
+  }
+
+  // Contributors beyond the creator and the most recent editor.
+  const otherContributors = Math.max(0, product.editorCount - 1)
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold text-foreground">Change history</h2>
+      <ul className="space-y-1.5">
+        {product.createdAt !== null && (
+          <HistoryLine
+            label="Added"
+            editor={product.creator}
+            timestamp={product.createdAt}
+          />
+        )}
+        {product.lastModifiedAt !== null && (
+          <HistoryLine
+            label="Last edited"
+            editor={product.lastEditor}
+            timestamp={product.lastModifiedAt}
+          />
+        )}
+        {otherContributors > 0 && (
+          <li className="flex items-center gap-1.5 text-sm">
+            <span className="text-muted-foreground">
+              Edited by{' '}
+              <span className="font-medium text-foreground">
+                {otherContributors}
+              </span>{' '}
+              {otherContributors === 1 ? 'other contributor' : 'other contributors'}
+            </span>
+          </li>
+        )}
+        {product.lastCheckedAt !== null && (
+          <HistoryLine
+            label="Last checked"
+            editor={product.lastChecker}
+            timestamp={product.lastCheckedAt}
+          />
+        )}
+      </ul>
+      <p className="text-xs text-muted-foreground">
+        Open Food Facts is collaborative — anyone can add and improve product
+        data.
+      </p>
+    </section>
+  )
+}
+
 function BackButton() {
   const navigate = useNavigate()
 
@@ -603,6 +735,8 @@ function ProductPage() {
                 )}
 
                 <ProductLabels product={product} />
+
+                <ProductHistory product={product} />
               </div>
             </div>
           </article>

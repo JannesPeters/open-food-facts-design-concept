@@ -43,16 +43,27 @@ function HomePage() {
 
       <footer className="border-t border-border">
         <div className="mx-auto w-full max-w-5xl px-6 py-6 text-center text-xs text-muted-foreground">
-          A design concept built on public{' '}
-          <a
-            href="https://world.openfoodfacts.org/"
-            target="_blank"
-            rel="noreferrer"
-            className="font-medium text-foreground underline underline-offset-4"
-          >
-            Open Food Facts
-          </a>{' '}
-          data. Not affiliated with or endorsed by Open Food Facts.
+          <p>
+            A design concept built on public{' '}
+            <a
+              href="https://world.openfoodfacts.org/"
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-foreground underline underline-offset-4"
+            >
+              Open Food Facts
+            </a>{' '}
+            data. Not affiliated with or endorsed by Open Food Facts.
+          </p>
+          <p className="mt-2">
+            Are you a producer?{' '}
+            <Link
+              to="/producers"
+              className="font-medium text-foreground underline underline-offset-4"
+            >
+              Share your products
+            </Link>
+          </p>
         </div>
       </footer>
     </div>
