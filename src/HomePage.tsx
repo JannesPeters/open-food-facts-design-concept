@@ -202,6 +202,15 @@ function HomePage() {
             data. Not affiliated with or endorsed by Open Food Facts.
           </p>
           <p className="mt-2">
+            Want to help?{' '}
+            <Link
+              to="/contributors"
+              className="font-medium text-foreground underline underline-offset-4"
+            >
+              Contribute to Open Food Facts
+            </Link>
+          </p>
+          <p className="mt-2">
             Are you a producer?{' '}
             <Link
               to="/producers"

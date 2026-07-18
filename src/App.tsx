@@ -7,6 +7,7 @@ const LoginPage = lazy(() => import('./LoginPage'))
 const ProductPage = lazy(() => import('./ProductPage'))
 const PricesPage = lazy(() => import('./PricesPage'))
 const ProducersPage = lazy(() => import('./ProducersPage'))
+const ContributorsPage = lazy(() => import('./ContributorsPage'))
 const ProPage = lazy(() => import('./ProPage'))
 const ScannerPage = lazy(() => import('./ScannerPage'))
 const SearchPage = lazy(() => import('./SearchPage'))
@@ -22,6 +23,7 @@ function App() {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/scanner" element={<ScannerPage />} />
           <Route path="/producers" element={<ProducersPage />} />
+          <Route path="/contributors" element={<ContributorsPage />} />
           <Route path="/pro" element={<ProPage />} />
           <Route path="/product/:barcode" element={<ProductPage />} />
           <Route path="/product/:barcode/prices" element={<PricesPage />} />
