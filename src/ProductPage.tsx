@@ -215,7 +215,13 @@ function ProductTags({
   product: ProductDetails
   className?: string
 }) {
-  if (!product.allergens && !product.ingredientsAnalysis) {
+  if (
+    !product.allergens &&
+    !product.allergensFromIngredients &&
+    !product.traces &&
+    !product.additives &&
+    !product.ingredientsAnalysis
+  ) {
     return null
   }
 
@@ -224,6 +230,24 @@ function ProductTags({
       {product.allergens && (
         <div className="min-w-0">
           <TagGroup label="Allergens" values={splitTags(product.allergens)} />
+        </div>
+      )}
+      {product.allergensFromIngredients && (
+        <div className="min-w-0">
+          <TagGroup
+            label="Allergens from ingredients"
+            values={splitTags(product.allergensFromIngredients)}
+          />
+        </div>
+      )}
+      {product.traces && (
+        <div className="min-w-0">
+          <TagGroup label="May contain traces of" values={splitTags(product.traces)} />
+        </div>
+      )}
+      {product.additives && (
+        <div className="min-w-0">
+          <TagGroup label="Additives" values={splitTags(product.additives)} />
         </div>
       )}
       {product.ingredientsAnalysis && (
@@ -235,6 +259,65 @@ function ProductTags({
         </div>
       )}
     </div>
+  )
+}
+
+function ProductOrigins({ product }: { product: ProductDetails }) {
+  if (
+    !product.origins &&
+    !product.manufacturingPlaces &&
+    !product.embCodes &&
+    !product.countries
+  ) {
+    return null
+  }
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold text-foreground">Origins &amp; supply</h2>
+      <div className="space-y-4">
+        {product.origins && (
+          <TagGroup label="Origins" values={splitTags(product.origins)} />
+        )}
+        {product.manufacturingPlaces && (
+          <TagGroup
+            label="Manufacturing places"
+            values={splitTags(product.manufacturingPlaces)}
+          />
+        )}
+        {product.embCodes && (
+          <TagGroup label="EMB codes" values={splitTags(product.embCodes)} />
+        )}
+        {product.countries && (
+          <TagGroup
+            label="Countries where sold"
+            values={splitTags(product.countries)}
+          />
+        )}
+      </div>
+    </section>
+  )
+}
+
+function ProductPackaging({ product }: { product: ProductDetails }) {
+  if (!product.packaging) {
+    return null
+  }
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold text-foreground">Packaging</h2>
+      <div className="flex flex-wrap gap-1.5">
+        {splitTags(product.packaging).map((value) => (
+          <span
+            key={value}
+            className="rounded-full border border-border bg-card px-2.5 py-0.5 text-xs text-foreground"
+          >
+            {value}
+          </span>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -505,7 +588,11 @@ function ProductPage() {
     product?.nutriScore || product?.ecoScore || product?.novaGroup !== null,
   )
   const hasProductTags = Boolean(
-    product?.allergens || product?.ingredientsAnalysis,
+    product?.allergens ||
+      product?.allergensFromIngredients ||
+      product?.traces ||
+      product?.additives ||
+      product?.ingredientsAnalysis,
   )
 
   return (
@@ -644,7 +731,7 @@ function ProductPage() {
                 <ScoreBadges product={product} />
                 <ProductFacts product={product} />
 
-                {(product.allergens || product.ingredientsAnalysis) && (
+                {hasProductTags && (
                   <div className="border-t border-border pt-6">
                     <ProductTags product={product} />
                   </div>
@@ -738,6 +825,8 @@ function ProductPage() {
                 )}
 
                 <ProductLabels product={product} />
+                <ProductOrigins product={product} />
+                <ProductPackaging product={product} />
 
                 <ProductHistory product={product} />
               </div>
