@@ -12,6 +12,7 @@ const ContributorsPage = lazy(() => import('./ContributorsPage'))
 const ProPage = lazy(() => import('./ProPage'))
 const ScannerPage = lazy(() => import('./ScannerPage'))
 const SearchPage = lazy(() => import('./SearchPage'))
+const AddProductPage = lazy(() => import('./AddProductPage'))
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/scanner" element={<ScannerPage />} />
+          <Route path="/add-product" element={<AddProductPage />} />
           <Route path="/producers" element={<ProducersPage />} />
           <Route path="/contributors" element={<ContributorsPage />} />
           <Route path="/pro" element={<ProPage />} />

@@ -1,7 +1,7 @@
 import { ArrowLeft, ArrowRight, ImageOff, LoaderCircle, PackageSearch, ScanLine, Settings2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
@@ -764,7 +764,9 @@ const formatEnergyPart = (value: number): string =>
 
 function ProductPage() {
   const params = useParams<{ barcode: string }>()
+  const [searchParams] = useSearchParams()
   const barcode = sanitizeBarcode(params.barcode ?? '')
+  const isAddFlow = searchParams.get('mode') === 'add'
   const sessionUser = useSessionUser()
 
   const [status, setStatus] = useState<Status>('loading')
@@ -1078,6 +1080,18 @@ function ProductPage() {
     }
   }, [product, status])
 
+  useEffect(() => {
+    if (
+      status === 'success' &&
+      product &&
+      !product.isProductFound &&
+      isAddFlow &&
+      !isEditMode
+    ) {
+      startEditMode()
+    }
+  }, [isAddFlow, isEditMode, product, startEditMode, status])
+
   const showImage = product?.imageUrl && !imageFailed
   const hasNutrients = product?.nutrients.some(
     (nutrient) => nutrient.value !== null || nutrient.text,
@@ -1194,7 +1208,7 @@ function ProductPage() {
           </div>
         )}
 
-        {status === 'success' && product && !product.isProductFound && (
+        {status === 'success' && product && !product.isProductFound && !isEditMode && (
           <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border py-20 text-center">
             <span className="flex size-12 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
               <PackageSearch className="size-5" />
@@ -1203,16 +1217,21 @@ function ProductPage() {
               No product found for barcode{' '}
               <span className="font-medium text-foreground">{barcode}</span>.
             </p>
-            <Button asChild variant="outline" size="sm">
-              <Link to="/scanner">
-                <ScanLine className="size-4" />
-                Scan another
-              </Link>
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button type="button" size="sm" onClick={startEditMode}>
+                Add this product
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link to="/scanner">
+                  <ScanLine className="size-4" />
+                  Scan another
+                </Link>
+              </Button>
+            </div>
           </div>
         )}
 
-        {status === 'success' && product && product.isProductFound && (
+        {status === 'success' && product && (product.isProductFound || isEditMode) && (
           <article className="space-y-8">
             {/* Mobile hero: image beside title */}
             <div className="space-y-6 lg:hidden">

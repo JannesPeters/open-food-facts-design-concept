@@ -1,4 +1,4 @@
-import { Clock3, ImageOff, ScanLine, Search } from 'lucide-react'
+import { Clock3, ImageOff, PlusSquare, ScanLine, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import ScoreBadge from '@/components/ScoreBadge'
@@ -158,6 +158,12 @@ function HomePage() {
             <Link to="/scanner">
               <ScanLine className="size-5" />
               Open the scanner
+            </Link>
+          </Button>
+          <Button asChild size="lg" variant="secondary">
+            <Link to="/add-product">
+              <PlusSquare className="size-5" />
+              Add product
             </Link>
           </Button>
           <Button asChild size="lg" variant="secondary">
