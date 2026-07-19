@@ -52,6 +52,7 @@ const buildProduct = (): ProductDetails => ({
   lastCheckedAt: null,
   lastChecker: null,
   priceSummary: null,
+  photoSummary: null,
 })
 
 describe('editable product field registry', () => {

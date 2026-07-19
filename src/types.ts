@@ -34,6 +34,24 @@ export interface ProductPriceSummary {
   statsCurrency: string | null
 }
 
+export interface ProductPhotoCategorySummary {
+  key: string
+  label: string
+  count: number
+  photos: ProductPhoto[]
+}
+
+export interface ProductPhoto {
+  id: string
+  url: string
+}
+
+export interface ProductPhotoSummary {
+  barcode: string
+  totalCount: number
+  categories: ProductPhotoCategorySummary[]
+}
+
 export interface PriceRecord {
   id: number
   price: number | null
@@ -80,6 +98,7 @@ export interface ProductDetails {
   lastCheckedAt: number | null
   lastChecker: string | null
   priceSummary: ProductPriceSummary | null
+  photoSummary: ProductPhotoSummary | null
 }
 
 export interface ProductSearchResult {
