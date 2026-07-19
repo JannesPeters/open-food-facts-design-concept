@@ -4,6 +4,8 @@ import type {
   NutrientValue,
   PriceRecord,
   ProductDetails,
+  ProductPhoto,
+  ProductPhotoSummary,
   ProductPriceSummary,
   ProductSearchResponse,
   ProductSearchResult,
@@ -17,6 +19,7 @@ const requestedFields = [
   'ingredients_text',
   'brands',
   'image_url',
+  'images',
   'nutriments',
   'nutrient_levels',
   'nutriscore_grade',
@@ -84,6 +87,7 @@ interface OpenFoodFactsProduct {
   ingredients_text?: string
   brands?: string
   image_url?: string
+  images?: Record<string, unknown>
   nutriments?: Record<string, number | string | undefined>
   nutrient_levels?: Record<string, string | undefined>
   nutriscore_grade?: string
@@ -165,6 +169,145 @@ const readNumber = (value: number | string | undefined) => {
   }
 
   return null
+}
+
+const photoCategoryLabels: Record<string, string> = {
+  front: 'Front',
+  ingredients: 'Ingredients',
+  nutrition: 'Nutrition',
+  packaging: 'Packaging',
+}
+
+const preferredPhotoCategoryOrder = ['front', 'ingredients', 'nutrition', 'packaging']
+
+const toTitleCase = (value: string) =>
+  value
+    .split(/[_-]/u)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+
+const getProductImagePath = (barcode: string): string => {
+  const normalized = barcode.replace(/\D/gu, '')
+  if (normalized.length <= 3) {
+    return normalized
+  }
+  if (normalized.length <= 6) {
+    return `${normalized.slice(0, 3)}/${normalized.slice(3)}`
+  }
+  if (normalized.length <= 9) {
+    return `${normalized.slice(0, 3)}/${normalized.slice(3, 6)}/${normalized.slice(6)}`
+  }
+  return `${normalized.slice(0, 3)}/${normalized.slice(3, 6)}/${normalized.slice(6, 9)}/${normalized.slice(9)}`
+}
+
+const readText = (value: unknown): string | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value)
+  }
+  if (typeof value !== 'string') {
+    return null
+  }
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+const buildPhotoSummary = (
+  barcode: string,
+  images: Record<string, unknown> | undefined,
+): ProductPhotoSummary | null => {
+  if (!images) {
+    return null
+  }
+
+  const imageBaseUrl = `https://images.openfoodfacts.org/images/products/${getProductImagePath(barcode)}`
+  const categoryPhotos = new Map<string, ProductPhoto[]>()
+  const uncategorizedPhotos: ProductPhoto[] = []
+
+  Object.entries(images).forEach(([key, value]) => {
+    const imageInfo =
+      value && typeof value === 'object'
+        ? (value as Record<string, unknown>)
+        : null
+
+    if (/^\d+$/u.test(key)) {
+      uncategorizedPhotos.push({
+        id: key,
+        url: `${imageBaseUrl}/${key}.400.jpg`,
+      })
+      return
+    }
+
+    const [categoryPrefix] = key.split('_')
+    const categoryKey = categoryPrefix?.trim().toLowerCase()
+
+    if (!categoryKey) {
+      const fallbackId = readText(imageInfo?.imgid) ?? key
+      uncategorizedPhotos.push({
+        id: fallbackId,
+        url: `${imageBaseUrl}/${fallbackId}.400.jpg`,
+      })
+      return
+    }
+
+    const categoryItems = categoryPhotos.get(categoryKey) ?? []
+    const revision = readText(imageInfo?.rev)
+    const imageId = readText(imageInfo?.imgid)
+    const url =
+      revision !== null
+        ? `${imageBaseUrl}/${key}.${revision}.400.jpg`
+        : `${imageBaseUrl}/${imageId ?? key}.400.jpg`
+
+    categoryItems.push({
+      id: imageId ?? key,
+      url,
+    })
+    categoryPhotos.set(categoryKey, categoryItems)
+  })
+
+  const orderedCategoryKeys = [
+    ...preferredPhotoCategoryOrder.filter((key) => categoryPhotos.has(key)),
+    ...Array.from(categoryPhotos.keys())
+      .filter((key) => !preferredPhotoCategoryOrder.includes(key))
+      .sort((a, b) => a.localeCompare(b)),
+  ]
+
+  const categories = orderedCategoryKeys.map((key) => {
+    const photos = categoryPhotos.get(key) ?? []
+    return {
+      key,
+      label: photoCategoryLabels[key] ?? toTitleCase(key),
+      count: photos.length,
+      photos,
+    }
+  })
+
+  const categorizedPhotoIds = new Set(
+    categories.flatMap((category) => category.photos.map((photo) => photo.id)),
+  )
+  const dedupedUncategorizedPhotos = uncategorizedPhotos.filter(
+    (photo) => !categorizedPhotoIds.has(photo.id),
+  )
+
+  if (dedupedUncategorizedPhotos.length > 0) {
+    categories.push({
+      key: 'uncategorized',
+      label: 'Uncategorized',
+      count: dedupedUncategorizedPhotos.length,
+      photos: dedupedUncategorizedPhotos,
+    })
+  }
+
+  const totalCount = categories.reduce((sum, category) => sum + category.count, 0)
+  if (totalCount <= 0) {
+    return null
+  }
+
+  return {
+    barcode,
+    totalCount,
+    categories,
+  }
 }
 
 const formatNumber = (value: number) =>
@@ -512,6 +655,7 @@ const buildMissingProductDetails = (barcode: string): ProductDetails => ({
   lastCheckedAt: null,
   lastChecker: null,
   priceSummary: null,
+  photoSummary: null,
 })
 
 const mapProductDetails = (
@@ -561,6 +705,7 @@ const mapProductDetails = (
     lastCheckedAt: readNumber(product?.last_checked_t),
     lastChecker: cleanText(product?.last_checker),
     priceSummary: null,
+    photoSummary: buildPhotoSummary(data.code ?? barcode, product?.images),
   }
 }
 

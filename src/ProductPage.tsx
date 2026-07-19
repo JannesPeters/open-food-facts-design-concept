@@ -46,6 +46,7 @@ import type {
   NutrientLevel,
   NutrientValue,
   ProductDetails,
+  ProductPhotoSummary,
   ProductPriceSummary,
 } from '@/types'
 
@@ -578,6 +579,48 @@ function ProductPrices({ summary }: { summary: ProductPriceSummary }) {
           Crowdsourced from Open Prices ({summary.priceCount}{' '}
           {summary.priceCount === 1 ? 'report' : 'reports'}).
         </p>
+      </div>
+    </section>
+  )
+}
+
+function ProductPhotos({ summary }: { summary: ProductPhotoSummary }) {
+  if (summary.totalCount <= 0 || summary.categories.length === 0) {
+    return null
+  }
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="text-lg font-semibold text-foreground">
+          Additional photos
+        </h2>
+        <Link
+          to={`/product/${summary.barcode}/photos`}
+          className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+        >
+          View more
+          <ArrowRight className="size-4" />
+        </Link>
+      </div>
+      <div className="rounded-xl border border-border bg-card p-4">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Photo count
+        </p>
+        <p className="mt-1 text-base font-semibold text-foreground">
+          {summary.totalCount} {summary.totalCount === 1 ? 'photo' : 'photos'}
+        </p>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {summary.categories.map((category) => (
+            <span
+              key={category.key}
+              className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-0.5 text-xs text-foreground"
+            >
+              <span>{category.label}</span>
+              <span className="text-muted-foreground">({category.count})</span>
+            </span>
+          ))}
+        </div>
       </div>
     </section>
   )
@@ -1365,6 +1408,10 @@ function ProductPage() {
 
                 {product.priceSummary && (
                   <ProductPrices summary={product.priceSummary} />
+                )}
+
+                {product.photoSummary && (
+                  <ProductPhotos summary={product.photoSummary} />
                 )}
 
                 <section className="space-y-3">
